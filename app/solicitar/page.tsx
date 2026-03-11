@@ -23,7 +23,7 @@ export default function Solicitar() {
 
     // Enviar a n8n webhook
     try {
-      await fetch('TU_WEBHOOK_N8N_AQUI', {
+      await fetch('https://defiendetetu.app.n8n.cloud/webhook-test/solicitud-acceso', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
