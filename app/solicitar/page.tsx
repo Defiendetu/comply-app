@@ -22,12 +22,11 @@ export default function Solicitar() {
     setEnviando(true);
 
     try {
-      const response = await fetch('https://defiendetetu.app.n8n.cloud/webhook-test/solicitud-acceso', {
+      await fetch('https://defiendetetu.app.n8n.cloud/webhook-test/solicitud-acceso', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
         },
-        mode: 'no-cors',
         body: JSON.stringify({
           ...formData,
           fecha: new Date().toISOString(),
@@ -37,7 +36,6 @@ export default function Solicitar() {
       setEnviado(true);
     } catch (error) {
       console.error('Error:', error);
-      // Aún así mostramos éxito porque no-cors no devuelve respuesta
       setEnviado(true);
     }
     
