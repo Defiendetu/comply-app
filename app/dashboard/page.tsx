@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const [user, setUser] = useState<{ email: string; empresa: string } | null>(null);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -25,6 +28,26 @@ export default function DashboardPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Verificar sesión al cargar
+  useEffect(() => {
+    const storedUser = localStorage.getItem('complyUser');
+    if (storedUser) {
+      const userData = JSON.parse(storedUser);
+      if (userData.loggedIn) {
+        setUser(userData);
+      } else {
+        router.push('/login');
+      }
+    } else {
+      router.push('/login');
+    }
+  }, [router]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('complyUser');
+    router.push('/login');
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -41,7 +64,6 @@ export default function DashboardPage() {
 
     setError('');
     
-    // Convertir a Base64
     const reader = new FileReader();
     reader.onload = () => {
       const base64 = (reader.result as string).split(',')[1];
@@ -156,6 +178,18 @@ export default function DashboardPage() {
     URL.revokeObjectURL(url);
   };
 
+  // Mostrar loading mientras verifica sesión
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -168,9 +202,15 @@ export default function DashboardPage() {
               </div>
               <span className="text-xl font-bold text-gray-900">Comply</span>
             </div>
-            <button className="text-gray-500 hover:text-gray-700 text-sm">
-              Cerrar sesión
-            </button>
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-600">{user.email}</span>
+              <button 
+                onClick={handleLogout}
+                className="text-gray-500 hover:text-gray-700 text-sm"
+              >
+                Cerrar sesión
+              </button>
+            </div>
           </div>
         </div>
       </header>
