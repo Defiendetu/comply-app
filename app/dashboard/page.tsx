@@ -10,7 +10,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [documentosGenerados, setDocumentosGenerados] = useState<{
-    manualHTML: string;
+    manualUrl: string;
+    manualNombre: string;
     matrizCSV: string;
     empresa: string;
     nit: string;
@@ -28,7 +29,6 @@ export default function DashboardPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Verificar sesión al cargar
   useEffect(() => {
     const storedUser = localStorage.getItem('complyUser');
     if (storedUser) {
@@ -125,25 +125,31 @@ export default function DashboardPage() {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Error al generar documentos');
-      }
+      const responseText = await response.text();
+      console.log('Respuesta del servidor:', responseText);
 
-      const data = await response.json();
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error('Error al procesar la respuesta del servidor');
+      }
       
       if (data.success) {
         setDocumentosGenerados({
-          manualHTML: data.documentos.manualHTML,
-          matrizCSV: data.documentos.matrizCSV,
-          empresa: data.empresa,
-          nit: data.nit,
-          representante: data.representante,
+          manualUrl: data.documentos?.manual?.url || '',
+          manualNombre: data.documentos?.manual?.nombre || 'Manual.docx',
+          matrizCSV: data.documentos?.matriz?.contenido || '',
+          empresa: data.empresa || '',
+          nit: data.nit || '',
+          representante: data.representante || '',
         });
         setStep(3);
       } else {
         throw new Error(data.mensaje || 'Error al procesar');
       }
     } catch (err) {
+      console.error('Error:', err);
       setError(err instanceof Error ? err.message : 'Error de conexión. Intenta de nuevo.');
     } finally {
       setLoading(false);
@@ -151,34 +157,32 @@ export default function DashboardPage() {
   };
 
   const descargarManual = () => {
-    if (!documentosGenerados) return;
+    if (!documentosGenerados || !documentosGenerados.manualUrl) {
+      setError('URL del manual no disponible');
+      return;
+    }
     
-    const blob = new Blob([documentosGenerados.manualHTML], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Manual_Medidas_Minimas_${documentosGenerados.empresa.replace(/\s+/g, '_')}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // Abrir la URL de DocuGenerate en una nueva pestaña para descargar
+    window.open(documentosGenerados.manualUrl, '_blank');
   };
 
   const descargarMatriz = () => {
-    if (!documentosGenerados) return;
+    if (!documentosGenerados || !documentosGenerados.matrizCSV) {
+      setError('Contenido de la matriz no disponible');
+      return;
+    }
     
-    const blob = new Blob([documentosGenerados.matrizCSV], { type: 'text/csv' });
+    const blob = new Blob([documentosGenerados.matrizCSV], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Matriz_Riesgo_${documentosGenerados.empresa.replace(/\s+/g, '_')}.csv`;
+    a.download = 'Matriz_Riesgo_' + documentosGenerados.empresa.replace(/[^a-zA-Z0-9]/g, '_') + '.csv';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
-  // Mostrar loading mientras verifica sesión
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -192,7 +196,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
@@ -216,7 +219,6 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8">
-        {/* Progress Steps */}
         <div className="mb-8">
           <div className="flex items-center justify-center space-x-4">
             {[1, 2, 3].map((s) => (
@@ -243,14 +245,12 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
             {error}
           </div>
         )}
 
-        {/* Step 1: Upload Documents */}
         {step === 1 && (
           <div className="bg-white rounded-xl shadow-sm p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
@@ -325,7 +325,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Step 2: Additional Information */}
         {step === 2 && (
           <div className="bg-white rounded-xl shadow-sm p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
@@ -336,7 +335,6 @@ export default function DashboardPage() {
             </p>
 
             <div className="space-y-6">
-              {/* Sector */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Sector de tu empresa *
@@ -355,7 +353,6 @@ export default function DashboardPage() {
                 </select>
               </div>
 
-              {/* Maneja Efectivo */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   ¿Tu empresa maneja efectivo? *
@@ -381,7 +378,6 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Opera con Extranjeros */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   ¿Operas con clientes o proveedores extranjeros? *
@@ -406,7 +402,6 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Canales */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   ¿Qué canales de operación utilizas? *
@@ -466,7 +461,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Step 3: Download Documents */}
         {step === 3 && documentosGenerados && (
           <div className="bg-white rounded-xl shadow-sm p-8">
             <div className="text-center mb-8">
@@ -483,7 +477,6 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            {/* Company Info Card */}
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
               <h3 className="font-semibold text-gray-700 mb-2">Datos extraídos:</h3>
               <div className="grid grid-cols-2 gap-2 text-sm">
@@ -493,9 +486,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Download Cards */}
             <div className="grid md:grid-cols-2 gap-4 mb-8">
-              {/* Manual */}
               <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-4">
                   <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -503,10 +494,10 @@ export default function DashboardPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                   </div>
-                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">HTML</span>
+                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">DOCX</span>
                 </div>
                 <h3 className="font-semibold text-gray-900 mb-1">Manual de Medidas Mínimas</h3>
-                <p className="text-sm text-gray-500 mb-4">Documento completo con políticas LA/FT/FPADM</p>
+                <p className="text-sm text-gray-500 mb-4">Documento Word profesional con todas las políticas</p>
                 <button
                   onClick={descargarManual}
                   className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center"
@@ -518,7 +509,6 @@ export default function DashboardPage() {
                 </button>
               </div>
 
-              {/* Matriz */}
               <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-4">
                   <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -542,11 +532,10 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Tips */}
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <h4 className="font-semibold text-yellow-800 mb-2">💡 Próximos pasos:</h4>
               <ul className="text-sm text-yellow-700 space-y-1">
-                <li>• Abre el Manual HTML en tu navegador y guárdalo como PDF (Ctrl+P → Guardar como PDF)</li>
+                <li>• El Manual se descargará como archivo Word (.docx) listo para usar</li>
                 <li>• Abre el CSV en Excel para ver la matriz con formato de tabla</li>
                 <li>• Presenta estos documentos a tu Asamblea de Accionistas para aprobación</li>
                 <li>• Envía la certificación a la Superintendencia de Sociedades antes del 30 de abril</li>
