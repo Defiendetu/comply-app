@@ -1,147 +1,142 @@
 'use client';
 
 import { useState } from 'react';
-import { Shield, ArrowLeft, LogIn, Eye, EyeOff } from 'lucide-react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
-export default function Login() {
+// USUARIOS DE PRUEBA - Agregar más aquí cuando lleguen solicitudes
+const USUARIOS_AUTORIZADOS = [
+  { email: 'demo@comply.com', password: 'demo2024', empresa: 'Demo Comply' },
+  { email: 'admin@comply.com', password: 'admin2024', empresa: 'Admin' },
+  // Agrega más usuarios aquí:
+  // { email: 'nuevo@empresa.com', password: 'clave123', empresa: 'Empresa SAS' },
+];
+
+export default function LoginPage() {
   const router = useRouter();
-  const [formData, setFormData] = useState({ email: '', password: '' });
-  const [showPassword, setShowPassword] = useState(false);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
+    setLoading(true);
 
-    // Simulación de login - En producción conectar con tu backend/n8n
-    // Por ahora, cualquier email/password funciona para demo
-    setTimeout(() => {
-      if (formData.email && formData.password) {
-        // Guardar sesión simple (en producción usar auth real)
-        localStorage.setItem('comply_user', JSON.stringify({ email: formData.email }));
-        router.push('/dashboard');
-      } else {
-        setError('Por favor completa todos los campos');
-      }
-      setLoading(false);
-    }, 1000);
-  };
+    // Buscar usuario en la lista
+    const usuario = USUARIOS_AUTORIZADOS.find(
+      u => u.email.toLowerCase() === formData.email.toLowerCase() && u.password === formData.password
+    );
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (usuario) {
+      // Guardar sesión en localStorage
+      localStorage.setItem('complyUser', JSON.stringify({
+        email: usuario.email,
+        empresa: usuario.empresa,
+        loggedIn: true
+      }));
+      
+      // Redirigir al dashboard
+      router.push('/dashboard');
+    } else {
+      setError('Email o contraseña incorrectos');
+    }
+
+    setLoading(false);
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="w-9 h-9 bg-gradient-to-br from-primary-600 to-primary-700 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/25">
-                <Shield className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-gray-900">Comply</span>
-            </Link>
-            <Link href="/" className="flex items-center text-gray-600 hover:text-primary-600 transition-colors">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Volver
-            </Link>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
+      <div className="max-w-md w-full">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <Link href="/" className="inline-flex items-center space-x-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center">
+              <span className="text-white font-bold text-xl">C</span>
+            </div>
+            <span className="text-2xl font-bold text-gray-900">Comply</span>
+          </Link>
+        </div>
+
+        {/* Card */}
+        <div className="bg-white rounded-2xl shadow-xl p-8">
+          <h1 className="text-2xl font-bold text-gray-900 text-center mb-2">
+            Iniciar Sesión
+          </h1>
+          <p className="text-gray-600 text-center mb-6">
+            Ingresa tus credenciales para continuar
+          </p>
+
+          {error && (
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                id="email"
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="tu@empresa.com"
+                required
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                Contraseña
+              </label>
+              <input
+                type="password"
+                id="password"
+                value={formData.password}
+                onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="••••••••"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className={`w-full py-3 rounded-lg font-semibold transition-colors ${
+                loading
+                  ? 'bg-blue-400 cursor-wait'
+                  : 'bg-blue-600 hover:bg-blue-700'
+              } text-white`}
+            >
+              {loading ? 'Ingresando...' : 'Ingresar'}
+            </button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-gray-600 text-sm">
+              ¿No tienes cuenta?{' '}
+              <Link href="/solicitar" className="text-blue-600 hover:underline font-medium">
+                Solicita acceso
+              </Link>
+            </p>
           </div>
         </div>
-      </div>
 
-      {/* Login Form */}
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="max-w-md w-full">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-3">Bienvenido de nuevo</h1>
-            <p className="text-gray-600">Ingresa tus credenciales para acceder</p>
-          </div>
-
-          <div className="card p-8">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {error && (
-                <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm">
-                  {error}
-                </div>
-              )}
-
-              {/* Email */}
-              <div>
-                <label htmlFor="email" className="label">Correo electrónico</label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="input-field"
-                  placeholder="tu@email.com"
-                />
-              </div>
-
-              {/* Password */}
-              <div>
-                <label htmlFor="password" className="label">Contraseña</label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    id="password"
-                    name="password"
-                    required
-                    value={formData.password}
-                    onChange={handleChange}
-                    className="input-field pr-12"
-                    placeholder="••••••••"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Submit */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full btn-primary py-4 text-lg disabled:opacity-50"
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Ingresando...
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center">
-                    <LogIn className="w-5 h-5 mr-2" />
-                    Iniciar sesión
-                  </span>
-                )}
-              </button>
-            </form>
-          </div>
-
-          <p className="text-center text-sm text-gray-500 mt-6">
-            ¿No tienes cuenta?{' '}
-            <Link href="/solicitar" className="text-primary-600 hover:text-primary-700 font-medium">
-              Solicita acceso
-            </Link>
+        {/* Demo credentials hint */}
+        <div className="mt-4 text-center">
+          <p className="text-sm text-gray-500">
+            Demo: <span className="font-mono bg-gray-100 px-2 py-1 rounded">demo@comply.com</span> / <span className="font-mono bg-gray-100 px-2 py-1 rounded">demo2024</span>
           </p>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
