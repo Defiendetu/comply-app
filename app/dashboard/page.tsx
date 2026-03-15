@@ -25,6 +25,11 @@ export default function DashboardPage() {
     manejaEfectivo: '',
     operaExtranjeros: '',
     canales: [] as string[],
+    tieneOficialCumplimiento: '',
+    realizaDebidaDiligencia: '',
+    consultaListasRestrictivas: '',
+    tieneProcedimientoROS: '',
+    capacitaPersonal: '',
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -117,6 +122,11 @@ export default function DashboardPage() {
           manejaEfectivo: formData.manejaEfectivo,
           operaExtranjeros: formData.operaExtranjeros,
           canales: formData.canales.join(', '),
+          tieneOficialCumplimiento: formData.tieneOficialCumplimiento || 'no',
+          realizaDebidaDiligencia: formData.realizaDebidaDiligencia || 'no',
+          consultaListasRestrictivas: formData.consultaListasRestrictivas || 'no',
+          tieneProcedimientoROS: formData.tieneProcedimientoROS || 'no',
+          capacitaPersonal: formData.capacitaPersonal || 'no',
         }),
       });
 
@@ -419,6 +429,44 @@ export default function DashboardPage() {
                   ))}
                 </div>
               </div>
+
+              <div className="border-t border-gray-200 pt-6 mt-2">
+                <h3 className="text-sm font-semibold text-gray-800 mb-1">Estado de cumplimiento actual</h3>
+                <p className="text-xs text-gray-500 mb-4">Estas preguntas nos permiten generar un checklist preciso en tu matriz de riesgo.</p>
+
+                {[
+                  { key: 'tieneOficialCumplimiento', label: '¿Ya tienen un oficial de cumplimiento designado?' },
+                  { key: 'realizaDebidaDiligencia', label: '¿Ya realizan debida diligencia (KYC) a clientes?' },
+                  { key: 'consultaListasRestrictivas', label: '¿Ya consultan listas restrictivas (OFAC, ONU, etc.)?' },
+                  { key: 'tieneProcedimientoROS', label: '¿Ya tienen procedimiento para reportar operaciones sospechosas?' },
+                  { key: 'capacitaPersonal', label: '¿Ya capacitan al personal en prevención LA/FT?' },
+                ].map((q) => (
+                  <div key={q.key} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+                    <span className="text-sm text-gray-700 pr-4">{q.label}</span>
+                    <div className="flex space-x-2 shrink-0">
+                      {[
+                        { value: 'si', label: 'Sí' },
+                        { value: 'parcial', label: 'En proceso' },
+                        { value: 'no', label: 'No' },
+                      ].map((option) => (
+                        <button
+                          key={option.value}
+                          onClick={() => setFormData(prev => ({ ...prev, [q.key]: option.value }))}
+                          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                            formData[q.key as keyof typeof formData] === option.value
+                              ? option.value === 'si' ? 'bg-green-100 text-green-700 border-2 border-green-500'
+                                : option.value === 'parcial' ? 'bg-yellow-100 text-yellow-700 border-2 border-yellow-500'
+                                : 'bg-red-100 text-red-700 border-2 border-red-500'
+                              : 'bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-200'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="mt-8 flex justify-between">
@@ -544,6 +592,11 @@ export default function DashboardPage() {
                     manejaEfectivo: '',
                     operaExtranjeros: '',
                     canales: [],
+                    tieneOficialCumplimiento: '',
+                    realizaDebidaDiligencia: '',
+                    consultaListasRestrictivas: '',
+                    tieneProcedimientoROS: '',
+                    capacitaPersonal: '',
                   });
                   setDocumentosGenerados(null);
                 }}
