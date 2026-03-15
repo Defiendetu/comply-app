@@ -314,14 +314,34 @@ export async function POST(request: NextRequest) {
       ['Identificar y evaluar factores de riesgo', 'Implementado', '10 factores identificados en esta matriz'],
       ['Establecer señales de alerta sectoriales', 'Implementado', '8 señales en hoja SEÑALES DE ALERTA'],
       ['Implementar controles de prevención', 'Implementado', '5 controles en hoja CONTROLES'],
-      ['Conocer al cliente (debida diligencia)', 'En proceso', 'Formulario KYC en desarrollo'],
-      ['Reportar operaciones sospechosas a UIAF', 'En proceso', 'Procedimiento de ROS definido en manual'],
-      ['Conservar documentos mínimo 10 años', 'Pendiente', 'Política de retención documental por definir'],
-      ['Capacitar al personal periódicamente', 'Pendiente', 'Plan de capacitación por implementar'],
-      ['Designar oficial de cumplimiento', 'En proceso', 'Representante Legal asignado interinamente'],
+      ['Conocer al cliente (debida diligencia)',
+        d.CHECK_DEBIDA_DILIGENCIA === 'Implementado' ? 'Implementado'
+          : d.CHECK_DEBIDA_DILIGENCIA === 'En proceso' ? 'En proceso' : 'Pendiente',
+        d.CHECK_DEBIDA_DILIGENCIA === 'Implementado' ? 'Procedimiento KYC implementado'
+          : d.CHECK_DEBIDA_DILIGENCIA === 'En proceso' ? 'Procedimiento KYC en desarrollo' : 'Procedimiento KYC por implementar'],
+      ['Reportar operaciones sospechosas a UIAF',
+        d.CHECK_PROCEDIMIENTO_ROS === 'Implementado' ? 'Implementado'
+          : d.CHECK_PROCEDIMIENTO_ROS === 'En proceso' ? 'En proceso' : 'Pendiente',
+        d.CHECK_PROCEDIMIENTO_ROS === 'Implementado' ? 'Procedimiento de ROS implementado'
+          : d.CHECK_PROCEDIMIENTO_ROS === 'En proceso' ? 'Procedimiento de ROS en desarrollo' : 'Procedimiento de ROS por implementar'],
+      ['Conservar documentos mínimo 5 años', 'Por implementar', 'Política de retención documental por definir con el sistema'],
+      ['Capacitar al personal periódicamente',
+        d.CHECK_CAPACITACION === 'Implementado' ? 'Implementado'
+          : d.CHECK_CAPACITACION === 'En proceso' ? 'En proceso' : 'Pendiente',
+        d.CHECK_CAPACITACION === 'Implementado' ? 'Personal capacitado en prevención LA/FT'
+          : d.CHECK_CAPACITACION === 'En proceso' ? 'Plan de capacitación en ejecución' : 'Plan de capacitación por implementar'],
+      ['Designar oficial de cumplimiento',
+        d.CHECK_OFICIAL_CUMPLIMIENTO === 'Implementado' ? 'Implementado'
+          : d.CHECK_OFICIAL_CUMPLIMIENTO === 'En proceso' ? 'En proceso' : 'Pendiente',
+        d.CHECK_OFICIAL_CUMPLIMIENTO === 'Implementado' ? 'Oficial de cumplimiento designado'
+          : d.CHECK_OFICIAL_CUMPLIMIENTO === 'En proceso' ? 'Designación en proceso' : 'Por designar oficial de cumplimiento'],
       ['Actualizar matriz de riesgo anualmente', 'Implementado', 'Primera versión generada automáticamente'],
-      ['Monitorear operaciones inusuales', 'En proceso', 'Parámetros de monitoreo en definición'],
-      ['Consultar listas restrictivas (OFAC, ONU)', 'Pendiente', 'Herramienta de consulta por implementar'],
+      ['Monitorear operaciones inusuales', 'Por implementar', 'Parámetros de monitoreo por definir con el sistema'],
+      ['Consultar listas restrictivas (OFAC, ONU)',
+        d.CHECK_LISTAS_RESTRICTIVAS === 'Implementado' ? 'Implementado'
+          : d.CHECK_LISTAS_RESTRICTIVAS === 'En proceso' ? 'En proceso' : 'Pendiente',
+        d.CHECK_LISTAS_RESTRICTIVAS === 'Implementado' ? 'Consulta periódica de listas implementada'
+          : d.CHECK_LISTAS_RESTRICTIVAS === 'En proceso' ? 'Proceso de consulta en implementación' : 'Herramienta de consulta por implementar'],
     ];
 
     let totalImpl = 0, totalProc = 0, totalPend = 0;
