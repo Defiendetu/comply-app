@@ -21,7 +21,6 @@ export default function DashboardPage() {
   const [formData, setFormData] = useState({
     certificadoBase64: '',
     certificadoNombre: '',
-    sector: '',
     manejaEfectivo: '',
     operaExtranjeros: '',
     canales: [] as string[],
@@ -90,10 +89,6 @@ export default function DashboardPage() {
       setError('Debes subir el Certificado de Cámara de Comercio');
       return;
     }
-    if (!formData.sector) {
-      setError('Selecciona el sector de tu empresa');
-      return;
-    }
     if (!formData.manejaEfectivo) {
       setError('Indica si manejas efectivo');
       return;
@@ -118,7 +113,6 @@ export default function DashboardPage() {
         },
         body: JSON.stringify({
           certificadoBase64: formData.certificadoBase64,
-          sector: formData.sector,
           manejaEfectivo: formData.manejaEfectivo,
           operaExtranjeros: formData.operaExtranjeros,
           canales: formData.canales.join(', '),
@@ -161,8 +155,6 @@ export default function DashboardPage() {
       setError('URL del manual no disponible');
       return;
     }
-    
-    // Abrir la URL de DocuGenerate en una nueva pestaña para descargar
     window.open(documentosGenerados.manualUrl, '_blank');
   };
 
@@ -257,7 +249,7 @@ export default function DashboardPage() {
               Sube tu Certificado de Cámara de Comercio
             </h2>
             <p className="text-gray-600 mb-6">
-              Extraeremos automáticamente los datos de tu empresa usando inteligencia artificial.
+              Nuestra IA extraerá automáticamente los datos de tu empresa, identificará tu sector APNFD y generará un análisis de riesgos personalizado.
             </p>
 
             <div 
@@ -309,6 +301,16 @@ export default function DashboardPage() {
               )}
             </div>
 
+            <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="font-semibold text-blue-800 mb-2">🤖 ¿Qué hace nuestra IA?</h4>
+              <ul className="text-sm text-blue-700 space-y-1">
+                <li>• Extrae automáticamente los datos de tu empresa</li>
+                <li>• Identifica el código CIIU y sector APNFD</li>
+                <li>• Genera un análisis de riesgos personalizado</li>
+                <li>• Crea documentos adaptados a tu actividad económica</li>
+              </ul>
+            </div>
+
             <div className="mt-8 flex justify-end">
               <button
                 onClick={() => formData.certificadoBase64 && setStep(2)}
@@ -335,24 +337,6 @@ export default function DashboardPage() {
             </p>
 
             <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sector de tu empresa *
-                </label>
-                <select
-                  value={formData.sector}
-                  onChange={(e) => setFormData(prev => ({ ...prev, sector: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Selecciona un sector</option>
-                  <option value="inmobiliario">Inmobiliario</option>
-                  <option value="juridico">Servicios Jurídicos</option>
-                  <option value="contable">Servicios Contables</option>
-                  <option value="metales">Metales y Piedras Preciosas</option>
-                  <option value="otro">Otro sector APNFD</option>
-                </select>
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   ¿Tu empresa maneja efectivo? *
@@ -451,7 +435,7 @@ export default function DashboardPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Generando documentos...
+                    Analizando con IA...
                   </span>
                 ) : (
                   'Generar Documentos'
@@ -473,12 +457,12 @@ export default function DashboardPage() {
                 ¡Documentos generados exitosamente!
               </h2>
               <p className="text-gray-600">
-                Hemos extraído los datos de <strong>{documentosGenerados.empresa}</strong> y generado tus documentos.
+                Nuestra IA ha analizado <strong>{documentosGenerados.empresa}</strong> y generado documentos personalizados.
               </p>
             </div>
 
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <h3 className="font-semibold text-gray-700 mb-2">Datos extraídos:</h3>
+              <h3 className="font-semibold text-gray-700 mb-2">Datos extraídos automáticamente:</h3>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div><span className="text-gray-500">Empresa:</span> {documentosGenerados.empresa}</div>
                 <div><span className="text-gray-500">NIT:</span> {documentosGenerados.nit}</div>
@@ -497,7 +481,7 @@ export default function DashboardPage() {
                   <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">DOCX</span>
                 </div>
                 <h3 className="font-semibold text-gray-900 mb-1">Manual de Medidas Mínimas</h3>
-                <p className="text-sm text-gray-500 mb-4">Documento Word profesional con todas las políticas</p>
+                <p className="text-sm text-gray-500 mb-4">Documento Word profesional con todas las políticas LA/FT/FPADM</p>
                 <button
                   onClick={descargarManual}
                   className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center"
@@ -519,7 +503,7 @@ export default function DashboardPage() {
                   <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">CSV</span>
                 </div>
                 <h3 className="font-semibold text-gray-900 mb-1">Matriz de Riesgo LA/FT/FPADM</h3>
-                <p className="text-sm text-gray-500 mb-4">Análisis de riesgos con controles aplicados</p>
+                <p className="text-sm text-gray-500 mb-4">Análisis personalizado con factores de riesgo y controles</p>
                 <button
                   onClick={descargarMatriz}
                   className="w-full py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center"
@@ -549,7 +533,6 @@ export default function DashboardPage() {
                   setFormData({
                     certificadoBase64: '',
                     certificadoNombre: '',
-                    sector: '',
                     manejaEfectivo: '',
                     operaExtranjeros: '',
                     canales: [],
