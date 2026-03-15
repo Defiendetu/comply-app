@@ -12,7 +12,8 @@ export default function DashboardPage() {
   const [documentosGenerados, setDocumentosGenerados] = useState<{
     manualUrl: string;
     manualNombre: string;
-    matrizCSV: string;
+    matrizBase64: string;
+    matrizNombre: string;
     empresa: string;
     nit: string;
     representante: string;
@@ -133,7 +134,8 @@ export default function DashboardPage() {
         setDocumentosGenerados({
           manualUrl: data.documentos?.manual?.url || '',
           manualNombre: data.documentos?.manual?.nombre || 'Manual.docx',
-          matrizCSV: data.documentos?.matriz?.contenido || '',
+          matrizBase64: data.documentos?.matriz?.base64 || '',
+          matrizNombre: data.documentos?.matriz?.nombre || 'Matriz_Riesgo.xlsx',
           empresa: data.empresa || '',
           nit: data.nit || '',
           representante: data.representante || '',
@@ -159,16 +161,22 @@ export default function DashboardPage() {
   };
 
   const descargarMatriz = () => {
-    if (!documentosGenerados || !documentosGenerados.matrizCSV) {
+    if (!documentosGenerados || !documentosGenerados.matrizBase64) {
       setError('Contenido de la matriz no disponible');
       return;
     }
     
-    const blob = new Blob([documentosGenerados.matrizCSV], { type: 'text/csv;charset=utf-8;' });
+    const byteCharacters = atob(documentosGenerados.matrizBase64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'Matriz_Riesgo_' + documentosGenerados.empresa.replace(/[^a-zA-Z0-9]/g, '_') + '.csv';
+    a.download = documentosGenerados.matrizNombre || 'Matriz_Riesgo.xlsx';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -500,7 +508,7 @@ export default function DashboardPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
                     </svg>
                   </div>
-                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">CSV</span>
+                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">XLSX</span>
                 </div>
                 <h3 className="font-semibold text-gray-900 mb-1">Matriz de Riesgo LA/FT/FPADM</h3>
                 <p className="text-sm text-gray-500 mb-4">Análisis personalizado con factores de riesgo y controles</p>
@@ -520,7 +528,7 @@ export default function DashboardPage() {
               <h4 className="font-semibold text-yellow-800 mb-2">💡 Próximos pasos:</h4>
               <ul className="text-sm text-yellow-700 space-y-1">
                 <li>• El Manual se descargará como archivo Word (.docx) listo para usar</li>
-                <li>• Abre el CSV en Excel para ver la matriz con formato de tabla</li>
+                <li>• La Matriz se descargará como archivo Excel (.xlsx) con 6 hojas profesionales</li>
                 <li>• Presenta estos documentos a tu Asamblea de Accionistas para aprobación</li>
                 <li>• Envía la certificación a la Superintendencia de Sociedades antes del 30 de abril</li>
               </ul>
