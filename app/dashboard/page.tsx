@@ -8,6 +8,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<{ email: string; empresa: string } | null>(null);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState('');
   const [documentosGenerados, setDocumentosGenerados] = useState<{
     manualBase64: string;
@@ -33,6 +34,31 @@ export default function DashboardPage() {
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const loadingMessages = [
+    { icon: '📄', text: 'Recibimos tu certificado de Cámara de Comercio...', sub: 'Preparando el análisis' },
+    { icon: '🔍', text: 'Nuestra IA está extrayendo los datos de tu empresa...', sub: 'Identificando razón social, NIT, objeto social' },
+    { icon: '🧠', text: 'Analizando los riesgos específicos de tu sector...', sub: 'Evaluando factores LA/FT/FPADM' },
+    { icon: '📊', text: 'Construyendo tu matriz de riesgo personalizada...', sub: 'Calculando probabilidades e impactos' },
+    { icon: '⚖️', text: 'Generando señales de alerta para tu actividad económica...', sub: 'Identificando controles específicos' },
+    { icon: '📋', text: 'Redactando tu Manual de Medidas Mínimas...', sub: 'Personalizando cada sección para tu empresa' },
+    { icon: '✨', text: 'Aplicando formato profesional a tus documentos...', sub: 'Ya casi terminamos...' },
+    { icon: '🔒', text: 'Finalizando la protección para tu empresa...', sub: 'Empaquetando todo para ti' },
+  ];
+
+  useEffect(() => {
+    if (!loading) {
+      setLoadingStep(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setLoadingStep(prev => {
+        if (prev < loadingMessages.length - 1) return prev + 1;
+        return prev;
+      });
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [loading]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('complyUser');
@@ -505,13 +531,55 @@ export default function DashboardPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Analizando con IA...
+                    Generando...
                   </span>
                 ) : (
                   'Generar Documentos'
                 )}
               </button>
             </div>
+
+            {loading && (
+              <div className="mt-8 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-8 border border-blue-100">
+                <div className="text-center">
+                  <div className="text-5xl mb-4 transition-all duration-500">{loadingMessages[loadingStep]?.icon}</div>
+                  <h3 className="text-lg font-bold text-blue-900 mb-2 transition-all duration-500">
+                    {loadingMessages[loadingStep]?.text}
+                  </h3>
+                  <p className="text-sm text-blue-600 mb-6 transition-all duration-500">
+                    {loadingMessages[loadingStep]?.sub}
+                  </p>
+                  
+                  <div className="max-w-md mx-auto mb-4">
+                    <div className="flex justify-between text-xs text-blue-500 mb-1">
+                      <span>Progreso</span>
+                      <span>{Math.round(((loadingStep + 1) / loadingMessages.length) * 100)}%</span>
+                    </div>
+                    <div className="w-full bg-blue-100 rounded-full h-2.5">
+                      <div 
+                        className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2.5 rounded-full transition-all duration-1000 ease-out"
+                        style={{ width: `${((loadingStep + 1) / loadingMessages.length) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-center space-x-2 mt-4">
+                    {loadingMessages.map((_, i) => (
+                      <div 
+                        key={i}
+                        className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                          i <= loadingStep ? 'bg-blue-500' : 'bg-blue-200'
+                        }`}
+                      ></div>
+                    ))}
+                  </div>
+
+                  <p className="text-xs text-gray-400 mt-6">
+                    Este proceso puede tomar entre 30 segundos y 2 minutos
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
