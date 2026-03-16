@@ -10,7 +10,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [documentosGenerados, setDocumentosGenerados] = useState<{
-    manualUrl: string;
+    manualBase64: string;
     manualNombre: string;
     matrizBase64: string;
     matrizNombre: string;
@@ -142,8 +142,8 @@ export default function DashboardPage() {
       
       if (data.success) {
         setDocumentosGenerados({
-          manualUrl: data.documentos?.manual?.url || '',
-          manualNombre: data.documentos?.manual?.nombre || 'Manual.docx',
+          manualBase64: data.documentos?.manual?.base64 || '',
+          manualNombre: data.documentos?.manual?.nombre || 'Manual_Medidas_Minimas.docx',
           matrizBase64: data.documentos?.matriz?.base64 || '',
           matrizNombre: data.documentos?.matriz?.nombre || 'Matriz_Riesgo.xlsx',
           empresa: data.empresa || '',
@@ -163,11 +163,25 @@ export default function DashboardPage() {
   };
 
   const descargarManual = () => {
-    if (!documentosGenerados || !documentosGenerados.manualUrl) {
-      setError('URL del manual no disponible');
+    if (!documentosGenerados || !documentosGenerados.manualBase64) {
+      setError('Contenido del manual no disponible');
       return;
     }
-    window.open(documentosGenerados.manualUrl, '_blank');
+    const byteCharacters = atob(documentosGenerados.manualBase64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = documentosGenerados.manualNombre || 'Manual_Medidas_Minimas.docx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const descargarMatriz = () => {
