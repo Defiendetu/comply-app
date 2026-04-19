@@ -353,6 +353,11 @@ export async function POST(request: NextRequest) {
     const perfil = d.PERFIL_RIESGO || 'MEDIO';
     const esAPNFD = ['inmobiliario', 'juridico', 'contable'].includes(sectorKey);
     const sector = SECTORES[sectorKey] || SECTORES.otro;
+    const tieneRevisorFiscal = (d.TIENE_REVISOR_FISCAL || 'no').toLowerCase() === 'si';
+    const revisorFiscalNombre = d.REVISOR_FISCAL_NOMBRE || '';
+    const tieneJuntaDirectiva = (d.TIENE_JUNTA_DIRECTIVA || 'no').toLowerCase() === 'si';
+    const tipoSociedad = (d.TIPO_SOCIEDAD || 'SAS').toUpperCase();
+    const organoAprobador = tieneJuntaDirectiva ? 'Junta Directiva' : (tipoSociedad.includes('LTDA') || tipoSociedad.includes('LIMITADA')) ? 'Junta de Socios' : 'Asamblea de Accionistas';
 
     const senalesCliente = sector.senales_clientes;
     const senalesProveedor = sector.senales_proveedores;
@@ -477,12 +482,16 @@ export async function POST(request: NextRequest) {
             heading1('III. Alcance y Responsables'),
             para(`Este documento es de aplicación tanto para los trabajadores directos como para colaboradores, contratistas, clientes, proveedores y otras personas relacionadas con ${empresaCorto}.`),
             heading2('Responsables'),
-            paraMulti([{ text: '1. Asamblea de Accionistas: ', bold: true }, { text: `Órgano máximo de ${empresa}. Responsable de la puesta en marcha y efectividad de las Medidas Mínimas.` }]),
+            paraMulti([{ text: `1. ${organoAprobador}: `, bold: true }, { text: `Órgano máximo de ${empresa}. Responsable de la puesta en marcha y efectividad de las Medidas Mínimas.` }]),
             paraMulti([{ text: '2. Representante Legal: ', bold: true }, { text: `${repLegal}, identificado(a) con C.C. ${cedulaRep}. Encargado de gestionar el Régimen de Medidas Mínimas.` }]),
             paraMulti([{ text: '3. Proveedores y/o Colaboradores: ', bold: true }, { text: 'Personas naturales o jurídicas que participan en actividades mediante contratos o acuerdos comerciales.' }]),
             paraMulti([{ text: '4. Trabajadores: ', bold: true }, { text: `Personas naturales vinculadas a ${empresaCorto} mediante contrato de trabajo.` }]),
-            paraMulti([{ text: '5. Revisor Fiscal: ', bold: true }, { text: 'Responsable de verificar que las operaciones se ajusten a la ley y los estatutos.' }]),
-            paraMulti([{ text: '6. Partes Interesadas: ', bold: true }, { text: 'Personas naturales o jurídicas con vínculos contractuales, comerciales o legales vigentes.' }]),
+            ...(tieneRevisorFiscal ? [
+              paraMulti([{ text: `5. Revisor Fiscal${revisorFiscalNombre ? ': ' : ''}`, bold: true }, { text: revisorFiscalNombre ? `${revisorFiscalNombre}. Su función principal es verificar que las operaciones de la sociedad se ajusten a la ley, los estatutos y las decisiones de la asamblea.` : 'Su función principal es verificar que las operaciones de la sociedad se ajusten a la ley, los estatutos y las decisiones de la asamblea.' }]),
+              paraMulti([{ text: `6. Partes Interesadas: `, bold: true }, { text: 'Personas naturales o jurídicas con vínculos contractuales, comerciales o legales vigentes.' }]),
+            ] : [
+              paraMulti([{ text: '5. Partes Interesadas: ', bold: true }, { text: 'Personas naturales o jurídicas con vínculos contractuales, comerciales o legales vigentes.' }]),
+            ]),
 
             // IV. DEFINICIONES
             heading1('IV. Definiciones'),
@@ -530,8 +539,8 @@ export async function POST(request: NextRequest) {
 
             // VI. FUNCIONES
             heading1('VI. Funciones y Responsabilidades'),
-            heading2('1. De la Asamblea de Accionistas'),
-            para('Órgano responsable de la puesta en marcha y efectividad de las Medidas Mínimas:'),
+            heading2(`1. De la ${organoAprobador}`),
+            para(`Órgano responsable de la puesta en marcha y efectividad de las Medidas Mínimas:`),
             letterItem('Establecer y aprobar la Política LA/FT/FPADM.', 'letters'),
             letterItem('Aprobar las Medidas Mínimas y sus actualizaciones.', 'letters'),
             letterItem('Analizar informes sobre el funcionamiento de las Medidas Mínimas.', 'letters'),
@@ -546,9 +555,13 @@ export async function POST(request: NextRequest) {
             letterItem('Presentar al máximo órgano social reportes y alertas.', 'letters2'),
             letterItem('Asegurarse de que las actividades estén debidamente documentadas.', 'letters2'),
             letterItem('Certificar ante la Superintendencia el cumplimiento del Capítulo X.', 'letters2'),
-            heading2('3. Del Revisor Fiscal'),
-            para('Tiene la obligación de denunciar ante las autoridades actos de corrupción y la presunta realización de delitos contra la administración pública, financiación del terrorismo y delincuencia organizada.'),
-            heading2('4. Trabajadores y Colaboradores'),
+            ...(tieneRevisorFiscal ? [
+              heading2('3. Del Revisor Fiscal'),
+              para(`El Revisor Fiscal de ${empresaCorto}${revisorFiscalNombre ? ', ' + revisorFiscalNombre + ',' : ''} tiene, además de las funciones contempladas en el ordenamiento jurídico colombiano, la obligación de denunciar ante las autoridades penales, disciplinarias y administrativas los actos de corrupción así como la presunta realización de delitos contra la administración pública, financiación del terrorismo y delincuencia organizada. También deberá poner estos hechos en conocimiento de los órganos sociales y de la administración de la sociedad.`),
+              heading2('4. Trabajadores y Colaboradores'),
+            ] : [
+              heading2('3. Trabajadores y Colaboradores'),
+            ]),
             para(`Los trabajadores de ${empresaCorto} deben:`),
             bulletItem('Reportar al representante legal cualquier operación inusual o señales de alerta.', 'bullets4'),
             bulletItem('Cumplir con las disposiciones del Manual de Medidas Mínimas.', 'bullets4'),
@@ -632,7 +645,7 @@ export async function POST(request: NextRequest) {
 
             // FIRMA
             divider(), emptyPara(200),
-            para(`Se elabora el presente Manual, a los ${fechaManual} para aprobación de la Asamblea General de Accionistas.`, { align: AlignmentType.CENTER }),
+            para(`Se elabora el presente Manual, a los ${fechaManual} para aprobación de la ${organoAprobador}.`, { align: AlignmentType.CENTER }),
             emptyPara(400),
             new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '___________________________', size: 22, font: 'Arial', color: C.GRIS_OSCURO })] }),
             new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 40 }, children: [new TextRun({ text: repLegal, bold: true, size: 22, font: 'Arial', color: C.AZUL_OSCURO })] }),
