@@ -215,11 +215,77 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Legend
+    // Escala de Probabilidad
     ws2.mergeCells(16, 1, 16, 12);
-    ws2.mergeCells(17, 1, 17, 4);
-    ws2.getCell(17, 1).value = 'Escala: Probabilidad/Impacto 1 (Muy bajo) a 5 (Muy alto)';
-    ws2.getCell(17, 1).font = { name: 'Arial', size: 9, color: { argb: 'FF808080' } };
+    const tituloEscala = ws2.getCell(17, 1);
+    ws2.mergeCells(17, 1, 17, 12);
+    tituloEscala.value = 'CRITERIOS DE VALORACIÓN — Metodología basada en la Guía de Administración de Riesgos (DAFP) aplicada a LA/FT/FPADM';
+    tituloEscala.font = { name: 'Arial', size: 10, bold: true, color: { argb: C.AZUL_OSCURO } };
+    tituloEscala.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Probability criteria table
+    ws2.mergeCells(19, 1, 19, 6);
+    const tProb = ws2.getCell(19, 1);
+    tProb.value = 'ESCALA DE PROBABILIDAD';
+    tProb.font = { name: 'Arial', size: 9, bold: true, color: { argb: C.BLANCO } };
+    tProb.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.AZUL_MEDIO } };
+    tProb.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    const probCriteria = [
+      ['1 — Raro', 'No se ha presentado en los últimos 5 años. Requiere circunstancias excepcionales.'],
+      ['2 — Improbable', 'Podría ocurrir alguna vez en 5 años. Existe alguna vulnerabilidad pero con baja exposición.'],
+      ['3 — Posible', 'Podría ocurrir al menos una vez en 2 años. La empresa tiene exposición moderada al factor.'],
+      ['4 — Probable', 'Ha ocurrido o podría ocurrir al menos una vez al año. Exposición frecuente al factor de riesgo.'],
+      ['5 — Casi seguro', 'Se espera que ocurra en la mayoría de las circunstancias. Exposición alta y continua.'],
+    ];
+    probCriteria.forEach(([nivel, desc], idx) => {
+      const row = 20 + idx;
+      ws2.mergeCells(row, 1, row, 2);
+      const cNivel = ws2.getCell(row, 1);
+      cNivel.value = nivel; cNivel.font = { name: 'Arial', size: 8, bold: true, color: { argb: C.AZUL_OSCURO } };
+      cNivel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.AZUL_FONDO } };
+      cNivel.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      ws2.mergeCells(row, 3, row, 6);
+      const cDesc = ws2.getCell(row, 3);
+      cDesc.value = desc; cDesc.font = { name: 'Arial', size: 8, color: { argb: C.GRIS_OSCURO } };
+      cDesc.alignment = { vertical: 'middle', wrapText: true };
+    });
+
+    // Impact criteria table
+    ws2.mergeCells(19, 7, 19, 12);
+    const tImp = ws2.getCell(19, 7);
+    tImp.value = 'ESCALA DE IMPACTO';
+    tImp.font = { name: 'Arial', size: 9, bold: true, color: { argb: C.BLANCO } };
+    tImp.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.AZUL_MEDIO } };
+    tImp.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    const impCriteria = [
+      ['1 — Insignificante', 'Impacto menor sin afectación reputacional ni legal. Sin pérdida económica material.'],
+      ['2 — Menor', 'Afectación reputacional local limitada. Posible observación de autoridad sin sanción.'],
+      ['3 — Moderado', 'Investigación preliminar por autoridad competente. Afectación reputacional moderada.'],
+      ['4 — Mayor', 'Sanción administrativa de la Superintendencia. Daño reputacional significativo.'],
+      ['5 — Catastrófico', 'Proceso penal, cierre temporal o liquidación. Inclusión en listas restrictivas.'],
+    ];
+    impCriteria.forEach(([nivel, desc], idx) => {
+      const row = 20 + idx;
+      ws2.mergeCells(row, 7, row, 8);
+      const cNivel = ws2.getCell(row, 7);
+      cNivel.value = nivel; cNivel.font = { name: 'Arial', size: 8, bold: true, color: { argb: C.AZUL_OSCURO } };
+      cNivel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.AZUL_FONDO } };
+      cNivel.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      ws2.mergeCells(row, 9, row, 12);
+      const cDesc = ws2.getCell(row, 9);
+      cDesc.value = desc; cDesc.font = { name: 'Arial', size: 8, color: { argb: C.GRIS_OSCURO } };
+      cDesc.alignment = { vertical: 'middle', wrapText: true };
+    });
+
+    // Risk level legend
+    ws2.mergeCells(26, 1, 26, 12);
+    const tNiveles = ws2.getCell(27, 1);
+    ws2.mergeCells(27, 1, 27, 12);
+    tNiveles.value = 'NIVELES DE RIESGO (Probabilidad × Impacto)';
+    tNiveles.font = { name: 'Arial', size: 10, bold: true, color: { argb: C.AZUL_OSCURO } };
+    tNiveles.alignment = { horizontal: 'center', vertical: 'middle' };
 
     const legend = [
       ['CRÍTICO', 'Riesgo ≥ 20 — Requiere intervención urgente', C.ROJO_INTENSO, C.ROJO_INTENSO_FONDO],
@@ -228,7 +294,7 @@ export async function POST(request: NextRequest) {
       ['BAJO', 'Riesgo < 6 — Gestión rutinaria', C.VERDE, C.VERDE_FONDO],
     ];
     legend.forEach(([niv, desc, color, bg], j) => {
-      const rr = 18 + j;
+      const rr = 28 + j;
       ws2.mergeCells(rr, 1, rr, 2);
       const cN = ws2.getCell(rr, 1);
       cN.value = niv;
@@ -236,7 +302,7 @@ export async function POST(request: NextRequest) {
       cN.font = { name: 'Arial', size: 9, bold: true, color: { argb: isCritico ? C.BLANCO : color as string } };
       cN.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isCritico ? C.ROJO_INTENSO : bg as string } };
       cN.alignment = { horizontal: 'center', vertical: 'middle' };
-      ws2.mergeCells(rr, 3, rr, 7);
+      ws2.mergeCells(rr, 3, rr, 12);
       ws2.getCell(rr, 3).value = desc;
       ws2.getCell(rr, 3).font = { name: 'Arial', size: 9, color: { argb: 'FF808080' } };
     });
