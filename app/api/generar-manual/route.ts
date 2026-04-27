@@ -26,8 +26,9 @@ const C = {
 function heading1(text: string) {
   return new Paragraph({
     heading: HeadingLevel.HEADING_1,
-    spacing: { before: 360, after: 200 },
-    children: [new TextRun({ text: text.toUpperCase(), bold: true, size: 28, font: 'Arial', color: C.AZUL_OSCURO })]
+    spacing: { before: 360, after: 120 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: C.AZUL_MEDIO, space: 6 } },
+    children: [new TextRun({ text: text.toUpperCase(), bold: true, size: 28, font: 'Arial', color: '1A1A1A' })]
   });
 }
 
@@ -35,14 +36,16 @@ function heading2(text: string) {
   return new Paragraph({
     heading: HeadingLevel.HEADING_2,
     spacing: { before: 280, after: 160 },
-    children: [new TextRun({ text, bold: true, size: 24, font: 'Arial', color: C.AZUL_MEDIO })]
+    border: { left: { style: BorderStyle.SINGLE, size: 12, color: C.AZUL_MEDIO, space: 8 } },
+    indent: { left: 120 },
+    children: [new TextRun({ text, bold: true, size: 24, font: 'Arial', color: '2D2D2D' })]
   });
 }
 
 function heading3(text: string) {
   return new Paragraph({
     spacing: { before: 200, after: 120 },
-    children: [new TextRun({ text, bold: true, size: 22, font: 'Arial', color: C.AZUL_CLARO })]
+    children: [new TextRun({ text, bold: true, size: 22, font: 'Arial', color: '3D3D3D' })]
   });
 }
 
@@ -53,7 +56,7 @@ function para(text: string, opts: any = {}) {
     children: [new TextRun({
       text, size: opts.size || 22, font: opts.font || 'Arial',
       bold: opts.bold || false, italics: opts.italics || false,
-      color: opts.color || C.GRIS_OSCURO
+      color: opts.color || '333333'
     })]
   });
 }
@@ -65,7 +68,7 @@ function paraMulti(runs: any[], opts: any = {}) {
     children: runs.map(r => new TextRun({
       text: r.text, size: r.size || 22, font: r.font || 'Arial',
       bold: r.bold || false, italics: r.italics || false,
-      color: r.color || C.GRIS_OSCURO
+      color: r.color || '333333'
     }))
   });
 }
@@ -79,7 +82,7 @@ function bulletItem(text: string, numbRef: string) {
     numbering: { reference: numbRef, level: 0 },
     alignment: AlignmentType.JUSTIFIED,
     spacing: { after: 80, line: 276 },
-    children: [new TextRun({ text, size: 22, font: 'Arial', color: C.GRIS_OSCURO })]
+    children: [new TextRun({ text, size: 22, font: 'Arial', color: '333333' })]
   });
 }
 
@@ -88,7 +91,7 @@ function numberedItem(text: string, numbRef: string) {
     numbering: { reference: numbRef, level: 0 },
     alignment: AlignmentType.JUSTIFIED,
     spacing: { after: 80, line: 276 },
-    children: [new TextRun({ text, size: 22, font: 'Arial', color: C.GRIS_OSCURO })]
+    children: [new TextRun({ text, size: 22, font: 'Arial', color: '333333' })]
   });
 }
 
@@ -97,7 +100,7 @@ function letterItem(text: string, numbRef: string) {
     numbering: { reference: numbRef, level: 0 },
     alignment: AlignmentType.JUSTIFIED,
     spacing: { after: 80, line: 276 },
-    children: [new TextRun({ text, size: 22, font: 'Arial', color: C.GRIS_OSCURO })]
+    children: [new TextRun({ text, size: 22, font: 'Arial', color: '333333' })]
   });
 }
 
@@ -119,7 +122,7 @@ function infoTable(rows: string[][]) {
           borders, width: { size: 6160, type: WidthType.DXA },
           shading: { fill: i % 2 === 0 ? C.BLANCO : C.GRIS_CLARO, type: ShadingType.CLEAR },
           margins: { top: 60, bottom: 60, left: 120, right: 120 },
-          children: [new Paragraph({ children: [new TextRun({ text: row[1], size: 20, font: 'Arial', color: C.GRIS_OSCURO })] })]
+          children: [new Paragraph({ children: [new TextRun({ text: row[1], size: 20, font: 'Arial', color: '333333' })] })]
         })
       ]
     }))
@@ -384,10 +387,10 @@ export async function POST(request: NextRequest) {
         default: { document: { run: { font: 'Arial', size: 22 } } },
         paragraphStyles: [
           { id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-            run: { size: 28, bold: true, font: 'Arial', color: C.AZUL_OSCURO },
-            paragraph: { spacing: { before: 360, after: 200 }, outlineLevel: 0 } },
+            run: { size: 28, bold: true, font: 'Arial', color: '1A1A1A' },
+            paragraph: { spacing: { before: 360, after: 120 }, outlineLevel: 0 } },
           { id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-            run: { size: 24, bold: true, font: 'Arial', color: C.AZUL_MEDIO },
+            run: { size: 24, bold: true, font: 'Arial', color: '2D2D2D' },
             paragraph: { spacing: { before: 280, after: 160 }, outlineLevel: 1 } },
         ]
       },
@@ -450,9 +453,9 @@ export async function POST(request: NextRequest) {
           headers: { default: new Header({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: C.AZUL_SUAVE, space: 4 } }, children: [new TextRun({ text: `${codigoManual}  |  ${empresa}`, size: 16, font: 'Arial', color: C.GRIS_MEDIO, italics: true })] })] }) },
           footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, border: { top: { style: BorderStyle.SINGLE, size: 4, color: C.AZUL_SUAVE, space: 4 } }, children: [new TextRun({ text: 'Manual de Medidas Mínimas LA/FT/FPADM  —  ', size: 16, font: 'Arial', color: C.GRIS_MEDIO }), new TextRun({ children: [PageNumber.CURRENT], size: 16, font: 'Arial', color: C.AZUL_MEDIO, bold: true })] })] }) },
           children: [
-            new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 400 }, children: [new TextRun({ text: 'TABLA DE CONTENIDO', size: 32, bold: true, font: 'Arial', color: C.AZUL_OSCURO })] }),
+            new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 400 }, children: [new TextRun({ text: 'TABLA DE CONTENIDO', size: 32, bold: true, font: 'Arial', color: '1A1A1A' })] }),
             divider(),
-            ...['INTRODUCCIÓN', 'I. OBJETIVO', 'II. OBJETIVOS ESPECÍFICOS', 'III. ALCANCE Y RESPONSABLES', 'IV. DEFINICIONES', 'V. MARCO NORMATIVO', 'VI. FUNCIONES Y RESPONSABILIDADES', 'VII. POLÍTICA LA/FT/FPADM', 'VIII. MECANISMO DE DIVULGACIÓN Y CAPACITACIÓN', 'IX. ETAPAS PARA LA ADMINISTRACIÓN DEL RIESGO', 'X. MECANISMO DE DEBIDA DILIGENCIA', 'XI. SEÑALES DE ALERTA', 'XII. RÉGIMEN SANCIONATORIO', 'FIRMA Y APROBACIÓN'].map(t => para(t, { bold: true, color: C.AZUL_OSCURO })),
+            ...['INTRODUCCIÓN', 'I. OBJETIVO', 'II. OBJETIVOS ESPECÍFICOS', 'III. ALCANCE Y RESPONSABLES', 'IV. DEFINICIONES', 'V. MARCO NORMATIVO', 'VI. FUNCIONES Y RESPONSABILIDADES', 'VII. POLÍTICA LA/FT/FPADM', 'VIII. MECANISMO DE DIVULGACIÓN Y CAPACITACIÓN', 'IX. ETAPAS PARA LA ADMINISTRACIÓN DEL RIESGO', 'X. MECANISMO DE DEBIDA DILIGENCIA', 'XI. SEÑALES DE ALERTA', 'XII. RÉGIMEN SANCIONATORIO', 'FIRMA Y APROBACIÓN'].map(t => para(t, { bold: true, color: '1A1A1A' })),
             divider(),
           ]
         },
@@ -470,7 +473,7 @@ export async function POST(request: NextRequest) {
             para(`Con lo anterior, el compromiso constante por garantizar la integridad en todas nuestras operaciones, y en cumplimiento de la normativa vigente en Colombia, presentamos el presente Manual de Medidas Mínimas para el Autocontrol y Gestión del Riesgo Integral de Lavado de Activos, Financiación del Terrorismo y Financiación de la Proliferación de Armas de Destrucción Masiva (LA/FT/FPADM) como documento que refleja el esfuerzo de ${empresa} por implementar prácticas empresariales responsables y seguras.`),
             para(sector.descripcion_sector),
             paraMulti([
-              { text: empresa, bold: true, color: C.AZUL_OSCURO },
+              { text: empresa, bold: true, color: '1A1A1A' },
               { text: ` (en adelante "${empresaCorto}"), constituida ${fechaConst}, identificada con NIT ${nit}, con domicilio en ${ciudad}, tiene por objeto social: ` },
               { text: objetoSocial, italics: true },
             ]),
@@ -532,7 +535,7 @@ export async function POST(request: NextRequest) {
               ['Riesgo Residual', 'Nivel resultante del riesgo después de aplicar los controles.'],
               ['ROS', 'Reporte de Operaciones Sospechosas ante la UIAF.'],
               ['UIAF', 'Unidad de Información y Análisis Financiero de Colombia.'],
-            ] as string[][]).map(([term, def]) => paraMulti([{ text: `${term}: `, bold: true, color: C.AZUL_OSCURO }, { text: def }])),
+            ] as string[][]).map(([term, def]) => paraMulti([{ text: `${term}: `, bold: true, color: '1A1A1A' }, { text: def }])),
 
             // V. MARCO NORMATIVO
             heading1('V. Marco Normativo'),
@@ -663,11 +666,11 @@ export async function POST(request: NextRequest) {
             divider(), emptyPara(200),
             para(`Se elabora el presente Manual, a los ${fechaManual} para aprobación de la ${organoAprobador}.`, { align: AlignmentType.CENTER }),
             emptyPara(400),
-            new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '___________________________', size: 22, font: 'Arial', color: C.GRIS_OSCURO })] }),
-            new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 40 }, children: [new TextRun({ text: repLegal, bold: true, size: 22, font: 'Arial', color: C.AZUL_OSCURO })] }),
-            new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 40 }, children: [new TextRun({ text: `C.C. No. ${cedulaRep}`, size: 20, font: 'Arial', color: C.GRIS_OSCURO })] }),
-            new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 40 }, children: [new TextRun({ text: 'Representante Legal', size: 20, font: 'Arial', color: C.GRIS_OSCURO })] }),
-            new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: empresa, bold: true, size: 20, font: 'Arial', color: C.AZUL_OSCURO })] }),
+            new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '___________________________', size: 22, font: 'Arial', color: '333333' })] }),
+            new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 40 }, children: [new TextRun({ text: repLegal, bold: true, size: 22, font: 'Arial', color: '1A1A1A' })] }),
+            new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 40 }, children: [new TextRun({ text: `C.C. No. ${cedulaRep}`, size: 20, font: 'Arial', color: '333333' })] }),
+            new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 40 }, children: [new TextRun({ text: 'Representante Legal', size: 20, font: 'Arial', color: '333333' })] }),
+            new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: empresa, bold: true, size: 20, font: 'Arial', color: '1A1A1A' })] }),
           ]
         }
       ]
