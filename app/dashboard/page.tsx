@@ -15,6 +15,8 @@ export default function DashboardPage() {
     manualNombre: string;
     matrizBase64: string;
     matrizNombre: string;
+    fccBase64: string;
+    fccNombre: string;
     empresa: string;
     nit: string;
     representante: string;
@@ -172,6 +174,8 @@ export default function DashboardPage() {
           manualNombre: data.documentos?.manual?.nombre || 'Manual_Medidas_Minimas.docx',
           matrizBase64: data.documentos?.matriz?.base64 || '',
           matrizNombre: data.documentos?.matriz?.nombre || 'Matriz_Riesgo.xlsx',
+          fccBase64: data.documentos?.fcc?.base64 || '',
+          fccNombre: data.documentos?.fcc?.nombre || 'FCC.xlsx',
           empresa: data.empresa || '',
           nit: data.nit || '',
           representante: data.representante || '',
@@ -227,6 +231,28 @@ export default function DashboardPage() {
     const a = document.createElement('a');
     a.href = url;
     a.download = documentosGenerados.matrizNombre || 'Matriz_Riesgo.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const descargarFCC = () => {
+    if (!documentosGenerados || !documentosGenerados.fccBase64) {
+      setError('Contenido del FCC no disponible');
+      return;
+    }
+    const byteCharacters = atob(documentosGenerados.fccBase64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = documentosGenerados.fccNombre || 'FCC.xlsx';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -608,7 +634,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4 mb-8">
+            <div className="grid md:grid-cols-3 gap-4 mb-8">
               <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-4">
                   <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -619,7 +645,7 @@ export default function DashboardPage() {
                   <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">DOCX</span>
                 </div>
                 <h3 className="font-semibold text-gray-900 mb-1">Manual de Medidas Mínimas</h3>
-                <p className="text-sm text-gray-500 mb-4">Documento Word profesional con todas las políticas LA/FT/FPADM</p>
+                <p className="text-sm text-gray-500 mb-4">Documento con todas las políticas LA/FT/FPADM</p>
                 <button
                   onClick={descargarManual}
                   className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center"
@@ -640,8 +666,8 @@ export default function DashboardPage() {
                   </div>
                   <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">XLSX</span>
                 </div>
-                <h3 className="font-semibold text-gray-900 mb-1">Matriz de Riesgo LA/FT/FPADM</h3>
-                <p className="text-sm text-gray-500 mb-4">Análisis personalizado con factores de riesgo y controles</p>
+                <h3 className="font-semibold text-gray-900 mb-1">Matriz de Riesgo</h3>
+                <p className="text-sm text-gray-500 mb-4">Análisis con factores de riesgo y controles</p>
                 <button
                   onClick={descargarMatriz}
                   className="w-full py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center"
@@ -650,6 +676,28 @@ export default function DashboardPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
                   Descargar Matriz
+                </button>
+              </div>
+
+              <div className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full font-medium">XLSX</span>
+                </div>
+                <h3 className="font-semibold text-gray-900 mb-1">Formulario Contraparte (FCC)</h3>
+                <p className="text-sm text-gray-500 mb-4">Conocimiento de contrapartes para clientes y proveedores</p>
+                <button
+                  onClick={descargarFCC}
+                  className="w-full py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors flex items-center justify-center"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Descargar FCC
                 </button>
               </div>
             </div>
