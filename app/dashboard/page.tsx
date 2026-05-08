@@ -296,6 +296,19 @@ export default function DashboardPage() {
   const handleGenerarFCCContraparte = async (contraparte: any) => {
     if (!empresaGuardada) return;
     try {
+      // Merge datos_extraidos with top-level fields for complete data
+      const cpData = {
+        ...contraparte,
+        ...(contraparte.datos_extraidos || {}),
+        razon_social: contraparte.razon_social || contraparte.datos_extraidos?.razon_social || '',
+        nit_cc: contraparte.nit_cc || contraparte.datos_extraidos?.nit_cc || contraparte.datos_extraidos?.nit || '',
+        representante_legal: contraparte.representante_legal || contraparte.datos_extraidos?.representante_legal || '',
+        ciudad: contraparte.ciudad || contraparte.datos_extraidos?.ciudad || '',
+        direccion: contraparte.datos_extraidos?.direccion || '',
+        objeto_social: contraparte.datos_extraidos?.objeto_social || '',
+        cedula_rep_legal: contraparte.datos_extraidos?.cedula_rep_legal || '',
+      };
+
       const resp = await fetch('/api/generar-fcc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -304,15 +317,18 @@ export default function DashboardPage() {
           NIT: empresaGuardada.nit,
           REPRESENTANTE_LEGAL: empresaGuardada.representante_legal,
           CIUDAD: empresaGuardada.ciudad,
-          CONTRAPARTE: contraparte,
+          DIRECCION: (empresaGuardada as any).direccion || '',
+          CONTRAPARTE: cpData,
         }),
       });
       const result = await resp.json();
       if (result.success && result.base64) {
         dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         await saveDocumento(empresaGuardada.id, 'fcc', result.filename, result.base64);
+      } else {
+        setError('Error generando FCC: ' + (result.error || 'intenta de nuevo'));
       }
-    } catch (err) { console.error('Error generating FCC:', err); }
+    } catch (err) { console.error('Error generating FCC:', err); setError('Error de conexión al generar FCC'); }
   };
 
   const handleLogout = () => { localStorage.removeItem('complyUser'); router.push('/login'); };
