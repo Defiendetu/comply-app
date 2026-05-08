@@ -683,6 +683,14 @@ export default function DashboardPage() {
                         <button onClick={() => handleGenerarFCCContraparte(c)} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold" style={{ background: '#8B5CF6', color: '#fff' }} title="Generar FCC">
                           Generar FCC
                         </button>
+                        <button onClick={async () => {
+                          if (confirm('¿Eliminar esta contraparte?')) {
+                            await supabase.from('contrapartes').delete().eq('id', c.id);
+                            setContrapartes(prev => prev.filter(x => x.id !== c.id));
+                          }
+                        }} className="px-2 py-1.5 rounded-lg text-[11px] font-semibold hover:bg-red-50" style={{ color: '#EF4444', border: '1px solid #FCA5A5' }} title="Eliminar">
+                          ✕
+                        </button>
                       </div>
                     </div>
                   ))}
