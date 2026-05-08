@@ -237,25 +237,31 @@ export default function DashboardPage() {
 
       // If certificate uploaded, extract data via API
       if (contraparteForm.certificadoBase64) {
-        const resp = await fetch('/api/generar-fcc-contraparte', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            empresa: empresaGuardada,
-            certificadoContraparteBase64: contraparteForm.certificadoBase64,
-            contraparte: { tipo_persona: contraparteForm.tipo_persona, tipo_relacion: contraparteForm.tipo_relacion },
-          }),
-        });
-        const result = await resp.json();
-        if (result.errors && result.errors.length > 0) {
-          setError('Errores: ' + result.errors.join('. '));
-          setLoadingContraparte(false);
-          return;
-        }
-        if (result.success && result.contraparte && result.datosExtraidos) {
-          finalData = { ...finalData, ...result.contraparte };
-        } else if (result.success && !result.datosExtraidos) {
-          setError('No se pudieron extraer datos del certificado. Registra manualmente.');
+        try {
+          const resp = await fetch('/api/generar-fcc-contraparte', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              empresa: empresaGuardada,
+              certificadoContraparteBase64: contraparteForm.certificadoBase64,
+              contraparte: { tipo_persona: contraparteForm.tipo_persona, tipo_relacion: contraparteForm.tipo_relacion },
+            }),
+          });
+          const result = await resp.json();
+          if (result.errors && result.errors.length > 0) {
+            console.error('Extraction errors:', result.errors);
+          }
+          if (result.success && result.contraparte && result.datosExtraidos) {
+            finalData = { ...finalData, ...result.contraparte };
+          } else {
+            // Extraction failed — show fields for manual input instead of blocking
+            setError('La IA no pudo extraer los datos del certificado. Por favor ingresa los datos manualmente.' + (result.errors ? ' Detalle: ' + result.errors[0] : ''));
+            setContraparteForm(p => ({ ...p, certificadoBase64: '', certificadoNombre: '' }));
+            setLoadingContraparte(false);
+            return;
+          }
+        } catch (fetchErr) {
+          setError('Error de conexión con el servidor. Intenta de nuevo.');
           setLoadingContraparte(false);
           return;
         }
