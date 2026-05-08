@@ -235,33 +235,27 @@ export default function DashboardPage() {
     try {
       let finalData: any = { ...contraparteForm };
 
-      // If certificate uploaded, extract data via API
+      // If certificate uploaded, extract data via n8n
       if (contraparteForm.certificadoBase64) {
         try {
-          const resp = await fetch('/api/generar-fcc-contraparte', {
+          const resp = await fetch('https://defiendetetu.app.n8n.cloud/webhook/extraer-contraparte', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              empresa: empresaGuardada,
-              certificadoContraparteBase64: contraparteForm.certificadoBase64,
-              contraparte: { tipo_persona: contraparteForm.tipo_persona, tipo_relacion: contraparteForm.tipo_relacion },
+              certificadoBase64: contraparteForm.certificadoBase64,
             }),
           });
           const result = await resp.json();
-          if (result.errors && result.errors.length > 0) {
-            console.error('Extraction errors:', result.errors);
-          }
-          if (result.success && result.contraparte && result.datosExtraidos) {
-            finalData = { ...finalData, ...result.contraparte };
+          if (result.success && result.datosExtraidos && result.contraparte) {
+            finalData = { ...finalData, ...result.contraparte, datos_extraidos: true };
           } else {
-            // Extraction failed — show fields for manual input instead of blocking
-            setError('La IA no pudo extraer los datos del certificado. Por favor ingresa los datos manualmente.' + (result.errors ? ' Detalle: ' + result.errors[0] : ''));
+            setError('La IA no pudo extraer los datos. ' + (result.error || 'Registra manualmente.'));
             setContraparteForm(p => ({ ...p, certificadoBase64: '', certificadoNombre: '' }));
             setLoadingContraparte(false);
             return;
           }
         } catch (fetchErr) {
-          setError('Error de conexión con el servidor. Intenta de nuevo.');
+          setError('Error de conexión con n8n. Intenta de nuevo.');
           setLoadingContraparte(false);
           return;
         }
