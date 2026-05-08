@@ -546,7 +546,7 @@ export default function DashboardPage() {
               {step === 3 && documentosGenerados && (
                 <div>
                   <div className="p-6 rounded-2xl mb-6 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #059669, #10B981)' }}>
-                    <div className="relative z-10 flex items-center gap-4"><div className="text-4xl float">🎉</div><div><h2 className="text-xl font-extrabold text-white">¡Documentos listos!</h2><p className="text-green-100 text-[13px] mt-0.5">{documentosGenerados.empresa} — NIT: {documentosGenerados.nit}</p><p className="text-green-200 text-[11px] mt-1">Los documentos han sido guardados en tu historial</p></div></div>
+                    <div className="relative z-10 flex items-center gap-4"><div className="text-4xl float">🎉</div><div><h2 className="text-xl font-extrabold text-white">¡Documentos listos!</h2><p className="text-green-100 text-[13px] mt-0.5">{documentosGenerados.empresa} — NIT: {documentosGenerados.nit}</p><p className="text-green-200 text-[11px] mt-1">Guardados en tu historial — siempre disponibles para descargar</p></div></div>
                   </div>
                   <div className="grid md:grid-cols-3 gap-4 mb-6">
                     {[
@@ -561,7 +561,10 @@ export default function DashboardPage() {
                       </div>
                     ))}
                   </div>
-                  <button onClick={() => { setStep(empresaGuardada ? 2 : 1); setDocumentosGenerados(null); }} className="w-full py-3 rounded-xl text-[13px] font-semibold" style={{ border: '1px solid #E4E4E7', color: '#71717A' }}>← Generar nuevos documentos</button>
+                  <div className="flex gap-3">
+                    <button onClick={() => { setActiveView('home'); setDocumentosGenerados(null); if (user) loadEmpresaData(user.email); }} className="flex-1 py-3 rounded-xl text-[13px] font-semibold text-white" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>Ver Panel de Control →</button>
+                    <button onClick={() => { setStep(2); setDocumentosGenerados(null); }} className="px-6 py-3 rounded-xl text-[13px] font-semibold" style={{ border: '1px solid #E4E4E7', color: '#71717A' }}>Regenerar</button>
+                  </div>
                 </div>
               )}
             </div>
