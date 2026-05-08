@@ -233,7 +233,7 @@ export default function DashboardPage() {
     if (!empresaGuardada) { setError('Primero registra tu empresa'); return; }
     setLoadingContraparte(true); setError('');
     try {
-      let contraparteData = { ...contraparteForm };
+      let finalData: any = { ...contraparteForm };
 
       // If certificate uploaded, extract data via API
       if (contraparteForm.certificadoBase64) {
@@ -243,27 +243,38 @@ export default function DashboardPage() {
           body: JSON.stringify({
             empresa: empresaGuardada,
             certificadoContraparteBase64: contraparteForm.certificadoBase64,
-            contraparte: contraparteData,
+            contraparte: { tipo_persona: contraparteForm.tipo_persona, tipo_relacion: contraparteForm.tipo_relacion },
           }),
         });
         const result = await resp.json();
-        if (result.success && result.contraparte) {
-          contraparteData = { ...contraparteData, ...result.contraparte };
+        if (result.errors && result.errors.length > 0) {
+          setError('Errores: ' + result.errors.join('. '));
+          setLoadingContraparte(false);
+          return;
+        }
+        if (result.success && result.contraparte && result.datosExtraidos) {
+          finalData = { ...finalData, ...result.contraparte };
+        } else if (result.success && !result.datosExtraidos) {
+          setError('No se pudieron extraer datos del certificado. Registra manualmente.');
+          setLoadingContraparte(false);
+          return;
         }
       }
 
       // Save to Supabase
-      const { data: saved } = await supabase.from('contrapartes').insert({
+      const { data: saved, error: dbError } = await supabase.from('contrapartes').insert({
         empresa_id: empresaGuardada.id,
-        tipo_persona: contraparteData.tipo_persona,
-        tipo_relacion: contraparteData.tipo_relacion,
-        razon_social: contraparteData.razon_social,
-        nit_cc: contraparteData.nit_cc || contraparteData.razon_social,
-        representante_legal: contraparteData.representante_legal,
-        ciudad: contraparteData.ciudad,
+        tipo_persona: finalData.tipo_persona || 'juridica',
+        tipo_relacion: finalData.tipo_relacion || 'cliente',
+        razon_social: finalData.razon_social || '',
+        nit_cc: finalData.nit_cc || finalData.nit || '',
+        representante_legal: finalData.representante_legal || '',
+        ciudad: finalData.ciudad || '',
         estado: 'activo',
-        datos_extraidos: contraparteData.certificadoBase64 ? contraparteData : null,
+        datos_extraidos: finalData.datos_extraidos ? finalData : null,
       }).select().single();
+
+      if (dbError) { setError('Error guardando: ' + dbError.message); setLoadingContraparte(false); return; }
 
       if (saved) {
         setContrapartes(prev => [saved, ...prev]);
