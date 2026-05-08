@@ -61,6 +61,13 @@ export default function DashboardPage() {
   // Document selection
   const [selectedDocs, setSelectedDocs] = useState<string[]>(['manual', 'matriz', 'fcc']);
 
+  // Contrapartes
+  const [contrapartes, setContrapartes] = useState<any[]>([]);
+  const [showNuevaContraparte, setShowNuevaContraparte] = useState(false);
+  const [contraparteForm, setContraparteForm] = useState({ tipo_persona: 'juridica', tipo_relacion: 'cliente', razon_social: '', nit_cc: '', representante_legal: '', ciudad: '', certificadoBase64: '', certificadoNombre: '' });
+  const [loadingContraparte, setLoadingContraparte] = useState(false);
+  const contraparteFileRef = useRef<HTMLInputElement>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadingMessages = [
@@ -113,6 +120,14 @@ export default function DashboardPage() {
           .order('created_at', { ascending: false })
           .limit(20);
         if (docs) setHistorialDocumentos(docs);
+
+        // Load contrapartes
+        const { data: contras } = await supabase
+          .from('contrapartes')
+          .select('*')
+          .eq('empresa_id', empresas[0].id)
+          .order('created_at', { ascending: false });
+        if (contras) setContrapartes(contras);
       }
     } catch (err) {
       console.error('Error loading data:', err);
@@ -203,6 +218,86 @@ export default function DashboardPage() {
     } catch (err) { console.error('Error logging activity:', err); }
   }
 
+  // Handle contraparte certificate upload
+  const handleContraparteCertificado = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    if (file.type !== 'application/pdf') { setError('Solo archivos PDF'); return; }
+    const reader = new FileReader();
+    reader.onload = () => { const b = (reader.result as string).split(',')[1]; setContraparteForm(p => ({ ...p, certificadoBase64: b, certificadoNombre: file.name })); };
+    reader.readAsDataURL(file);
+  };
+
+  // Save new contraparte
+  const handleSaveContraparte = async () => {
+    if (!contraparteForm.razon_social && !contraparteForm.certificadoBase64) { setError('Ingresa el nombre o sube un certificado'); return; }
+    if (!empresaGuardada) { setError('Primero registra tu empresa'); return; }
+    setLoadingContraparte(true); setError('');
+    try {
+      let contraparteData = { ...contraparteForm };
+
+      // If certificate uploaded, extract data via API
+      if (contraparteForm.certificadoBase64) {
+        const resp = await fetch('/api/generar-fcc-contraparte', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            empresa: empresaGuardada,
+            certificadoContraparteBase64: contraparteForm.certificadoBase64,
+            contraparte: contraparteData,
+          }),
+        });
+        const result = await resp.json();
+        if (result.success && result.contraparte) {
+          contraparteData = { ...contraparteData, ...result.contraparte };
+        }
+      }
+
+      // Save to Supabase
+      const { data: saved } = await supabase.from('contrapartes').insert({
+        empresa_id: empresaGuardada.id,
+        tipo_persona: contraparteData.tipo_persona,
+        tipo_relacion: contraparteData.tipo_relacion,
+        razon_social: contraparteData.razon_social,
+        nit_cc: contraparteData.nit_cc || contraparteData.razon_social,
+        representante_legal: contraparteData.representante_legal,
+        ciudad: contraparteData.ciudad,
+        estado: 'activo',
+        datos_extraidos: contraparteData.certificadoBase64 ? contraparteData : null,
+      }).select().single();
+
+      if (saved) {
+        setContrapartes(prev => [saved, ...prev]);
+        setShowNuevaContraparte(false);
+        setContraparteForm({ tipo_persona: 'juridica', tipo_relacion: 'cliente', razon_social: '', nit_cc: '', representante_legal: '', ciudad: '', certificadoBase64: '', certificadoNombre: '' });
+        if (user) await logActivity(empresaGuardada.id, user.email, 'registrar_contraparte', `Contraparte: ${saved.razon_social}`);
+      }
+    } catch (err) { setError(err instanceof Error ? err.message : 'Error al guardar contraparte'); }
+    finally { setLoadingContraparte(false); }
+  };
+
+  // Generate FCC for a specific contraparte
+  const handleGenerarFCCContraparte = async (contraparte: any) => {
+    if (!empresaGuardada) return;
+    try {
+      const resp = await fetch('/api/generar-fcc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          RAZON_SOCIAL: empresaGuardada.razon_social,
+          NIT: empresaGuardada.nit,
+          REPRESENTANTE_LEGAL: empresaGuardada.representante_legal,
+          CIUDAD: empresaGuardada.ciudad,
+          CONTRAPARTE: contraparte,
+        }),
+      });
+      const result = await resp.json();
+      if (result.success && result.base64) {
+        dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        await saveDocumento(empresaGuardada.id, 'fcc', result.filename, result.base64);
+      }
+    } catch (err) { console.error('Error generating FCC:', err); }
+  };
+
   const handleLogout = () => { localStorage.removeItem('complyUser'); router.push('/login'); };
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -262,7 +357,7 @@ export default function DashboardPage() {
   const nav = [
     { id: 'home' as ActiveView, label: 'Inicio', svg: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
     { id: 'documentos' as ActiveView, label: 'Documentos', svg: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
-    { id: 'contrapartes' as ActiveView, label: 'Contrapartes', svg: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', badge: 'Próximo', disabled: true },
+    { id: 'contrapartes' as ActiveView, label: 'Contrapartes', svg: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', badge: 'Nuevo' },
     { id: 'agentes' as ActiveView, label: 'AI Agents', svg: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z', badge: 'Nuevo' },
     { id: 'matriz' as ActiveView, label: 'Matriz', svg: 'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7', badge: 'Próximo', disabled: true },
     { id: 'reportes' as ActiveView, label: 'Reportes', svg: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', badge: 'Próximo', disabled: true },
@@ -332,7 +427,7 @@ export default function DashboardPage() {
         <header className="sticky top-0 z-20 px-8 h-16 flex items-center justify-between" style={{ background: 'rgba(250,250,250,0.8)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
           <div>
             <h1 className="text-lg font-bold" style={{ color: '#0F172A' }}>
-              {activeView === 'home' && 'Panel de Control'}{activeView === 'documentos' && 'Generar Documentos'}{activeView === 'agentes' && 'AI Agents'}
+              {activeView === 'home' && 'Panel de Control'}{activeView === 'documentos' && 'Generar Documentos'}{activeView === 'agentes' && 'AI Agents'}{activeView === 'contrapartes' && 'Contrapartes'}
             </h1>
           </div>
           <button onClick={() => { setActiveView('documentos'); setStep(empresaGuardada ? 2 : 1); }} className="px-4 py-2 rounded-full text-[13px] font-semibold text-white" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>+ Nuevo Análisis</button>
@@ -456,6 +551,139 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* ======== CONTRAPARTES ======== */}
+          {activeView === 'contrapartes' && (
+            <div>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <p className="text-[13px]" style={{ color: '#71717A' }}>Registra y gestiona las contrapartes de tu empresa. Genera FCC personalizados.</p>
+                </div>
+                <button onClick={() => setShowNuevaContraparte(true)} className="px-4 py-2 rounded-xl text-[13px] font-bold text-white" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>+ Nueva Contraparte</button>
+              </div>
+
+              {/* New Contraparte Form */}
+              {showNuevaContraparte && (
+                <div className="rounded-2xl p-6 mb-6" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.06)' }}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-[15px]" style={{ color: '#18181B' }}>Registrar Nueva Contraparte</h3>
+                    <button onClick={() => setShowNuevaContraparte(false)} className="text-[20px]" style={{ color: '#A1A1AA' }}>×</button>
+                  </div>
+
+                  {/* Type selection */}
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="text-[12px] font-semibold block mb-2" style={{ color: '#3F3F46' }}>Tipo de persona</label>
+                      <div className="flex gap-2">
+                        {['juridica', 'natural'].map(t => (
+                          <button key={t} onClick={() => setContraparteForm(p => ({...p, tipo_persona: t}))} className="flex-1 px-3 py-2 rounded-lg text-[12px] font-medium border" style={contraparteForm.tipo_persona === t ? { background: '#EEF2FF', borderColor: '#6366F1', color: '#4338CA' } : { borderColor: '#E4E4E7', color: '#71717A' }}>
+                            {t === 'juridica' ? 'Persona Jurídica' : 'Persona Natural'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[12px] font-semibold block mb-2" style={{ color: '#3F3F46' }}>Tipo de relación</label>
+                      <div className="flex gap-2">
+                        {['cliente', 'proveedor', 'empleado'].map(t => (
+                          <button key={t} onClick={() => setContraparteForm(p => ({...p, tipo_relacion: t}))} className="flex-1 px-3 py-2 rounded-lg text-[12px] font-medium border" style={contraparteForm.tipo_relacion === t ? { background: '#EEF2FF', borderColor: '#6366F1', color: '#4338CA' } : { borderColor: '#E4E4E7', color: '#71717A' }}>
+                            {t.charAt(0).toUpperCase() + t.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Certificate upload (optional) */}
+                  <div className="mb-4 p-4 rounded-xl" style={{ background: '#F8FAFC', border: '1px dashed #C7D2FE' }}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-[13px]" style={{ color: '#3F3F46' }}>Certificado de Cámara de Comercio <span className="font-normal text-[11px]" style={{ color: '#A1A1AA' }}>(opcional)</span></div>
+                        <div className="text-[11px] mt-0.5" style={{ color: '#71717A' }}>Si subes el certificado, la IA extraerá los datos automáticamente</div>
+                      </div>
+                      <button onClick={() => contraparteFileRef.current?.click()} className="px-3 py-1.5 rounded-lg text-[12px] font-semibold" style={{ background: '#EEF2FF', color: '#6366F1', border: '1px solid #C7D2FE' }}>
+                        {contraparteForm.certificadoBase64 ? '✅ ' + contraparteForm.certificadoNombre : 'Subir PDF'}
+                      </button>
+                      <input type="file" ref={contraparteFileRef} onChange={handleContraparteCertificado} accept=".pdf" className="hidden" />
+                    </div>
+                  </div>
+
+                  {/* Manual fields */}
+                  {!contraparteForm.certificadoBase64 && (
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>{contraparteForm.tipo_persona === 'juridica' ? 'Razón Social' : 'Nombre Completo'}</label>
+                        <input type="text" value={contraparteForm.razon_social} onChange={e => setContraparteForm(p => ({...p, razon_social: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: '#E4E4E7' }} placeholder={contraparteForm.tipo_persona === 'juridica' ? 'Empresa S.A.S.' : 'Juan Pérez'} />
+                      </div>
+                      <div>
+                        <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>{contraparteForm.tipo_persona === 'juridica' ? 'NIT' : 'Cédula'}</label>
+                        <input type="text" value={contraparteForm.nit_cc} onChange={e => setContraparteForm(p => ({...p, nit_cc: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: '#E4E4E7' }} placeholder="900123456-7" />
+                      </div>
+                      {contraparteForm.tipo_persona === 'juridica' && (
+                        <div>
+                          <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>Representante Legal</label>
+                          <input type="text" value={contraparteForm.representante_legal} onChange={e => setContraparteForm(p => ({...p, representante_legal: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: '#E4E4E7' }} />
+                        </div>
+                      )}
+                      <div>
+                        <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>Ciudad</label>
+                        <input type="text" value={contraparteForm.ciudad} onChange={e => setContraparteForm(p => ({...p, ciudad: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: '#E4E4E7' }} />
+                      </div>
+                    </div>
+                  )}
+
+                  {error && <div className="mb-4 p-3 rounded-lg text-[13px] text-red-700" style={{ background: '#FEF2F2' }}>{error}</div>}
+
+                  <div className="flex gap-3">
+                    <button onClick={handleSaveContraparte} disabled={loadingContraparte} className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white disabled:opacity-50" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>
+                      {loadingContraparte ? 'Procesando...' : contraparteForm.certificadoBase64 ? 'Extraer datos y registrar' : 'Registrar contraparte'}
+                    </button>
+                    <button onClick={() => setShowNuevaContraparte(false)} className="px-4 py-2.5 rounded-xl text-[13px] font-semibold" style={{ border: '1px solid #E4E4E7', color: '#71717A' }}>Cancelar</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Contrapartes list */}
+              {contrapartes.length > 0 ? (
+                <div className="space-y-3">
+                  {contrapartes.map((c) => (
+                    <div key={c.id} className="card-lift rounded-xl p-5 flex items-center justify-between" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.05)' }}>
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg" style={{ background: c.tipo_persona === 'juridica' ? '#EEF2FF' : '#FFF7ED' }}>
+                          {c.tipo_persona === 'juridica' ? '🏢' : '👤'}
+                        </div>
+                        <div>
+                          <div className="font-bold text-[14px]" style={{ color: '#18181B' }}>{c.razon_social || 'Sin nombre'}</div>
+                          <div className="text-[12px]" style={{ color: '#71717A' }}>
+                            {c.nit_cc || 'Sin documento'} — {c.tipo_relacion?.charAt(0).toUpperCase() + c.tipo_relacion?.slice(1)} — {c.ciudad || 'Sin ciudad'}
+                          </div>
+                          <div className="text-[10px] mt-0.5" style={{ color: '#A1A1AA' }}>
+                            Registrada el {new Date(c.created_at).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={c.estado === 'activo' ? { background: '#ECFDF5', color: '#059669' } : { background: '#FEF2F2', color: '#EF4444' }}>
+                          {c.estado === 'activo' ? 'Activo' : c.estado}
+                        </span>
+                        <button onClick={() => handleGenerarFCCContraparte(c)} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold" style={{ background: '#8B5CF6', color: '#fff' }} title="Generar FCC">
+                          Generar FCC
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : !showNuevaContraparte && (
+                <div className="text-center py-16 rounded-2xl" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.05)' }}>
+                  <div className="text-4xl mb-3">👥</div>
+                  <h3 className="font-bold text-[15px] mb-1" style={{ color: '#18181B' }}>No tienes contrapartes registradas</h3>
+                  <p className="text-[13px] mb-4" style={{ color: '#71717A' }}>Registra tus clientes, proveedores y empleados para generar FCC personalizados.</p>
+                  <button onClick={() => setShowNuevaContraparte(true)} className="px-5 py-2 rounded-xl text-[13px] font-bold text-white" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>+ Registrar primera contraparte</button>
+                </div>
+              )}
             </div>
           )}
 
