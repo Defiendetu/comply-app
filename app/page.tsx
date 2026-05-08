@@ -1,321 +1,360 @@
 'use client';
 
-import { Shield, FileText, Clock, CheckCircle, ArrowRight, Sparkles, Building2, Scale, Users, ChevronRight, Upload, Settings, Download } from 'lucide-react';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 
-// Componente Navbar
-function Navbar() {
+export default function LandingPage() {
+  const [mounted, setMounted] = useState(false);
+  const [activeModule, setActiveModule] = useState(0);
+
+  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    const interval = setInterval(() => { setActiveModule(p => (p + 1) % 4); }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const modules = [
+    { name: 'Generación Documental', desc: 'Manual de Medidas Mínimas, Matriz de Riesgo y FCC generados automáticamente desde tu Cámara de Comercio.', features: ['Análisis de riesgos por sector con IA', 'Señales de alerta con referencia GAFI/UIAF', 'Criterios de valoración basados en DAFP'], icon: '📋', color: '#6366F1' },
+    { name: 'Screening de Listas', desc: 'Cruce automático contra listas restrictivas nacionales e internacionales. OFAC, ONU, Procuraduría, Contraloría y PEPs.', features: ['Consulta de 300+ fuentes en segundos', 'Alertas por coincidencias en tiempo real', 'Integración con Tusdatos y Apitude'], icon: '🔍', color: '#F59E0B' },
+    { name: 'Monitoreo Continuo', desc: 'Vigilancia permanente de tus contrapartes con alertas automáticas cuando cambian las condiciones de riesgo.', features: ['Recálculo periódico de riesgos', 'Notificaciones por cambios en listas', 'Dashboard de estado en tiempo real'], icon: '📡', color: '#10B981' },
+    { name: 'Reportes Regulatorios', desc: 'Generación automática de informes de gestión, reportes de operaciones y certificaciones para la Superintendencia.', features: ['Informe de Gestión Anual automático', 'Calendario de obligaciones regulatorias', 'Exportación en formatos oficiales'], icon: '📊', color: '#EF4444' },
+  ];
+
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-lg border-b border-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="w-9 h-9 bg-gradient-to-br from-primary-600 to-primary-700 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/25">
-              <Shield className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl font-bold text-gray-900">Comply</span>
+    <div style={{ fontFamily: "'Outfit', system-ui, sans-serif", background: '#FAFAFA' }}>
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+        * { font-family: 'Outfit', system-ui, sans-serif; }
+        .hero-mesh { background: radial-gradient(ellipse at 30% 30%, rgba(99,102,241,0.12) 0%, transparent 50%), radial-gradient(ellipse at 70% 60%, rgba(168,85,247,0.08) 0%, transparent 50%), radial-gradient(ellipse at 50% 100%, rgba(236,72,153,0.05) 0%, transparent 50%); }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        @keyframes glow-pulse { 0%, 100% { box-shadow: 0 0 30px rgba(99,102,241,0.2); } 50% { box-shadow: 0 0 60px rgba(99,102,241,0.4); } }
+        .fu { animation: fadeUp 0.8s ease-out forwards; }
+        .fu1 { animation-delay: 0.1s; opacity: 0; }
+        .fu2 { animation-delay: 0.2s; opacity: 0; }
+        .fu3 { animation-delay: 0.3s; opacity: 0; }
+        .fu4 { animation-delay: 0.4s; opacity: 0; }
+        .fu5 { animation-delay: 0.5s; opacity: 0; }
+        .float { animation: float 4s ease-in-out infinite; }
+        .card-lift { transition: all 0.4s cubic-bezier(0.4,0,0.2,1); }
+        .card-lift:hover { transform: translateY(-6px); box-shadow: 0 25px 60px rgba(0,0,0,0.12); }
+        .gradient-border { position: relative; }
+        .gradient-border::after { content: ''; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; background: linear-gradient(135deg, rgba(99,102,241,0.4), rgba(168,85,247,0.4), rgba(236,72,153,0.2)); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+        .nav-glass { background: rgba(255,255,255,0.7); backdrop-filter: blur(20px) saturate(180%); }
+        .dark-section { background: linear-gradient(180deg, #0F172A 0%, #1E1B4B 100%); }
+        .stat-glow { animation: glow-pulse 3s ease-in-out infinite; }
+      `}</style>
+
+      {/* NAV */}
+      <nav className="fixed top-0 left-0 right-0 z-50 nav-glass" style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 flex items-center justify-between h-16">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-black text-xs" style={{ background: 'linear-gradient(135deg, #6366F1, #A855F7)' }}>C</div>
+            <span className="text-lg font-bold" style={{ color: '#18181B' }}>Comply</span>
           </Link>
-
-          <div className="hidden md:flex items-center space-x-8">
-            <a href="#beneficios" className="text-gray-600 hover:text-primary-600 transition-colors font-medium">Beneficios</a>
-            <a href="#como-funciona" className="text-gray-600 hover:text-primary-600 transition-colors font-medium">Cómo funciona</a>
-            <a href="#sectores" className="text-gray-600 hover:text-primary-600 transition-colors font-medium">Sectores</a>
+          <div className="hidden md:flex items-center gap-8">
+            <a href="#modulos" className="text-[13px] font-medium" style={{ color: '#71717A' }}>Módulos</a>
+            <a href="#agentes" className="text-[13px] font-medium" style={{ color: '#71717A' }}>AI Agents</a>
+            <a href="#sectores" className="text-[13px] font-medium" style={{ color: '#71717A' }}>Sectores</a>
           </div>
-
-          <div className="flex items-center space-x-4">
-            <Link href="/login" className="text-gray-600 hover:text-primary-600 transition-colors font-medium hidden sm:block">Iniciar sesión</Link>
-            <Link href="/solicitar" className="btn-primary text-sm">Solicitar acceso</Link>
+          <div className="flex items-center gap-3">
+            <Link href="/login" className="text-[13px] font-medium" style={{ color: '#71717A' }}>Iniciar sesión</Link>
+            <Link href="/solicitar" className="px-4 py-2 rounded-full text-[13px] font-semibold text-white" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>Solicitar acceso</Link>
           </div>
         </div>
-      </div>
-    </nav>
-  );
-}
+      </nav>
 
-// Componente Hero
-function Hero() {
-  return (
-    <section className="relative pt-32 pb-20 lg:pt-40 lg:pb-32 overflow-hidden">
-      <div className="absolute inset-0 bg-hero-pattern" />
-      <div className="absolute top-20 right-0 w-96 h-96 bg-primary-100 rounded-full blur-3xl opacity-30" />
-      <div className="absolute bottom-0 left-0 w-80 h-80 bg-accent-emerald/10 rounded-full blur-3xl" />
-      
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-4xl mx-auto">
-          <div className="inline-flex items-center px-4 py-2 bg-primary-50 rounded-full mb-8 animate-fade-in">
-            <Sparkles className="w-4 h-4 text-primary-600 mr-2" />
-            <span className="text-sm font-medium text-primary-700">Cumplimiento SAGRILAFT simplificado</span>
-          </div>
+      {/* HERO */}
+      <section className="relative pt-32 pb-24 lg:pt-44 lg:pb-36 overflow-hidden hero-mesh">
+        <div className="absolute top-20 right-1/4 w-[500px] h-[500px] rounded-full opacity-30" style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.2), transparent 70%)', filter: 'blur(80px)' }}></div>
+        <div className="absolute bottom-0 left-10 w-[400px] h-[400px] rounded-full opacity-20" style={{ background: 'radial-gradient(circle, rgba(168,85,247,0.2), transparent 70%)', filter: 'blur(60px)' }}></div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-tight mb-6 animate-slide-up">
-            Genera tu documentación{' '}
-            <span className="gradient-text">LA/FT/FPADM</span>{' '}
-            en minutos
-          </h1>
-
-          <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto animate-slide-up">
-            Manual de Medidas Mínimas y Matriz de Riesgo personalizados para tu empresa. 
-            Cumple con la Superintendencia de Sociedades sin complicaciones.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12 animate-slide-up">
-            <Link href="/solicitar" className="btn-primary text-lg px-8 py-4">
-              Solicitar acceso gratuito
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Link>
-            <a href="#como-funciona" className="btn-outline text-lg px-8 py-4">Ver cómo funciona</a>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-gray-500 animate-fade-in">
-            <div className="flex items-center">
-              <CheckCircle className="w-5 h-5 text-accent-emerald mr-2" />
-              <span>Conforme al Capítulo X</span>
-            </div>
-            <div className="flex items-center">
-              <CheckCircle className="w-5 h-5 text-accent-emerald mr-2" />
-              <span>Circular 100-000016</span>
-            </div>
-            <div className="flex items-center">
-              <CheckCircle className="w-5 h-5 text-accent-emerald mr-2" />
-              <span>Actualizado 2024</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Preview mockup */}
-        <div className="mt-16 relative animate-slide-up">
-          <div className="relative mx-auto max-w-5xl">
-            <div className="card p-2 overflow-hidden">
-              <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 rounded-t-xl border-b border-gray-100">
-                <div className="flex gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-red-400" />
-                  <div className="w-3 h-3 rounded-full bg-yellow-400" />
-                  <div className="w-3 h-3 rounded-full bg-green-400" />
-                </div>
-                <div className="flex-1 flex justify-center">
-                  <div className="px-4 py-1 bg-white rounded-md text-xs text-gray-400 border border-gray-200">comply.app/dashboard</div>
-                </div>
+        <div className="relative max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto text-center">
+            {mounted && <>
+              <div className="fu fu1 inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-8" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)' }}>
+                <span className="w-2 h-2 rounded-full" style={{ background: '#6366F1' }}></span>
+                <span className="text-[12px] font-semibold" style={{ color: '#6366F1' }}>Plataforma de cumplimiento con IA</span>
               </div>
-              <div className="bg-gradient-to-br from-gray-50 to-white p-8 rounded-b-xl">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center">
-                        <FileText className="w-6 h-6 text-primary-600" />
-                      </div>
-                      <span className="px-3 py-1 bg-accent-emerald/10 text-accent-emerald text-xs font-medium rounded-full">Generado</span>
-                    </div>
-                    <h3 className="font-semibold text-gray-900 mb-1">Manual de Medidas Mínimas</h3>
-                    <p className="text-sm text-gray-500">Documento Word personalizado</p>
+
+              <h1 className="fu fu2 text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-[1.05] tracking-tight mb-6" style={{ color: '#09090B' }}>
+                Cumplimiento<br/>
+                <span style={{ background: 'linear-gradient(135deg, #6366F1 0%, #A855F7 50%, #EC4899 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>sin fricciones</span>
+              </h1>
+
+              <p className="fu fu3 text-lg lg:text-xl max-w-2xl mx-auto mb-10 leading-relaxed" style={{ color: '#52525B' }}>
+                La plataforma que automatiza tu cumplimiento LA/FT/FPADM.
+                Genera documentos regulatorios, monitorea contrapartes y protege tu empresa
+                con agentes de inteligencia artificial.
+              </p>
+
+              <div className="fu fu4 flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+                <Link href="/solicitar" className="px-8 py-4 rounded-2xl text-[15px] font-bold text-white transition-all hover:opacity-90 hover:scale-[1.02]" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', boxShadow: '0 8px 30px rgba(99,102,241,0.3)' }}>
+                  Solicitar acceso gratuito →
+                </Link>
+                <a href="#modulos" className="px-8 py-4 rounded-2xl text-[15px] font-semibold transition-all hover:bg-gray-50" style={{ color: '#3F3F46', border: '1px solid #E4E4E7' }}>
+                  Ver módulos
+                </a>
+              </div>
+
+              <div className="fu fu5 flex flex-wrap items-center justify-center gap-8 text-[13px]" style={{ color: '#A1A1AA' }}>
+                {['Capítulo X Circular Básica Jurídica', 'Resolución 100-006322 de 2023', 'Metodología DAFP'].map((t, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="#10B981" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    <span>{t}</span>
                   </div>
-                  <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="w-12 h-12 bg-accent-emerald/10 rounded-xl flex items-center justify-center">
-                        <FileText className="w-6 h-6 text-accent-emerald" />
-                      </div>
-                      <span className="px-3 py-1 bg-accent-emerald/10 text-accent-emerald text-xs font-medium rounded-full">Generado</span>
-                    </div>
-                    <h3 className="font-semibold text-gray-900 mb-1">Matriz de Riesgo</h3>
-                    <p className="text-sm text-gray-500">Excel con fórmulas automáticas</p>
-                  </div>
-                </div>
+                ))}
               </div>
-            </div>
-            
-            <div className="absolute -left-4 top-1/3 animate-float hidden lg:block">
-              <div className="bg-white px-4 py-3 rounded-xl shadow-xl border border-gray-100">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-accent-emerald/10 rounded-full flex items-center justify-center">
-                    <CheckCircle className="w-5 h-5 text-accent-emerald" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">Documento listo</p>
-                    <p className="text-xs text-gray-500">Hace 2 minutos</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            </>}
           </div>
         </div>
-      </div>
-    </section>
-  );
-}
+      </section>
 
-// Componente Beneficios
-function Beneficios() {
-  const beneficios = [
-    { icon: Clock, title: 'Ahorra tiempo', description: 'Genera documentos en minutos, no en semanas. Sin necesidad de contratar consultores externos.', color: 'primary' },
-    { icon: Shield, title: 'Cumplimiento garantizado', description: 'Documentos alineados con el Capítulo X de la Circular Básica Jurídica de la Superintendencia de Sociedades.', color: 'emerald' },
-    { icon: FileText, title: 'Documentos profesionales', description: 'Manual y Matriz de Riesgo con formato profesional, listos para presentar a la autoridad.', color: 'primary' },
-    { icon: Users, title: 'Sin oficial de cumplimiento', description: 'Las Medidas Mínimas pueden ser gestionadas directamente por el Representante Legal.', color: 'emerald' }
-  ];
-
-  return (
-    <section id="beneficios" className="py-20 lg:py-32 bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">¿Por qué elegir Comply?</h2>
-          <p className="text-lg text-gray-600">Simplificamos el cumplimiento SAGRILAFT para que puedas enfocarte en tu negocio</p>
-        </div>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {beneficios.map((beneficio, index) => (
-            <div key={index} className="card-hover p-6 text-center">
-              <div className={`w-14 h-14 mx-auto mb-5 rounded-2xl flex items-center justify-center ${beneficio.color === 'emerald' ? 'bg-accent-emerald/10' : 'bg-primary-100'}`}>
-                <beneficio.icon className={`w-7 h-7 ${beneficio.color === 'emerald' ? 'text-accent-emerald' : 'text-primary-600'}`} />
+      {/* STATS BAR */}
+      <section className="dark-section py-16">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+            {[
+              { n: '3', l: 'Documentos generados', s: 'Manual + Matriz + FCC' },
+              { n: '6', l: 'Sectores APNFD', s: 'Inmobiliario, Jurídico, Contable...' },
+              { n: '300+', l: 'Fuentes consultadas', s: 'OFAC, ONU, GAFI, UIAF...' },
+              { n: 'IA', l: 'Agentes autónomos', s: 'Vigía, Centinela, Cumplidor' },
+            ].map((s, i) => (
+              <div key={i}>
+                <div className="text-4xl lg:text-5xl font-black mb-2" style={{ color: '#A5B4FC' }}>{s.n}</div>
+                <div className="text-[14px] font-semibold text-white mb-1">{s.l}</div>
+                <div className="text-[11px]" style={{ color: '#64748B' }}>{s.s}</div>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">{beneficio.title}</h3>
-              <p className="text-gray-600 text-sm leading-relaxed">{beneficio.description}</p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
-    </section>
-  );
-}
+      </section>
 
-// Componente Cómo Funciona
-function ComoFunciona() {
-  const pasos = [
-    { numero: '01', titulo: 'Sube tus documentos', descripcion: 'Carga el Certificado de Cámara de Comercio y RUT de tu empresa. Extraemos la información automáticamente.', icon: Upload },
-    { numero: '02', titulo: 'Completa datos adicionales', descripcion: 'Responde unas pocas preguntas sobre tu operación: sector, canales, manejo de efectivo.', icon: Settings },
-    { numero: '03', titulo: 'Descarga tus documentos', descripcion: 'Recibe tu Manual de Medidas Mínimas en Word y tu Matriz de Riesgo en Excel, listos para usar.', icon: Download }
-  ];
-
-  return (
-    <section id="como-funciona" className="py-20 lg:py-32">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">¿Cómo funciona?</h2>
-          <p className="text-lg text-gray-600">Tres simples pasos para obtener tu documentación SAGRILAFT</p>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
-          {pasos.map((paso, index) => (
-            <div key={index} className="relative">
-              {index < pasos.length - 1 && (
-                <div className="hidden md:block absolute top-16 left-full w-full h-0.5 bg-gradient-to-r from-primary-200 to-transparent -translate-x-1/2 z-0" />
-              )}
-              <div className="relative z-10 text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 text-white rounded-2xl shadow-lg shadow-primary-500/30 mb-6">
-                  <paso.icon className="w-8 h-8" />
-                </div>
-                <div className="text-xs font-bold text-primary-600 mb-2">PASO {paso.numero}</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">{paso.titulo}</h3>
-                <p className="text-gray-600">{paso.descripcion}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// Componente Sectores
-function Sectores() {
-  const sectores = [
-    { icon: Building2, nombre: 'Agentes Inmobiliarios', descripcion: 'Intermediación en compra, venta y arriendo de inmuebles' },
-    { icon: Scale, nombre: 'Servicios Jurídicos', descripcion: 'Abogados y firmas de abogados (CIIU 6910)' },
-    { icon: FileText, nombre: 'Servicios Contables', descripcion: 'Contadores y firmas de contabilidad (CIIU M69)' },
-    { icon: Sparkles, nombre: 'Metales y Piedras Preciosas', descripcion: 'Comercialización de metales y piedras preciosas' }
-  ];
-
-  return (
-    <section id="sectores" className="py-20 lg:py-32 bg-primary-950">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <h2 className="text-3xl lg:text-4xl font-bold text-white mb-4">Sectores que aplican</h2>
-          <p className="text-lg text-primary-200">El Régimen de Medidas Mínimas aplica para estos sectores según el Capítulo X</p>
-        </div>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {sectores.map((sector, index) => (
-            <div key={index} className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300">
-              <div className="w-12 h-12 bg-primary-500/20 rounded-xl flex items-center justify-center mb-4">
-                <sector.icon className="w-6 h-6 text-primary-300" />
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-2">{sector.nombre}</h3>
-              <p className="text-primary-300 text-sm">{sector.descripcion}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-12 text-center">
-          <p className="text-primary-300 mb-6">
-            Aplica para empresas con ingresos entre 3,000 y 30,000 SMLMV o activos entre 5,000 y 40,000 SMLMV
-          </p>
-          <Link href="/solicitar" className="inline-flex items-center text-white font-medium hover:text-primary-300 transition-colors">
-            Verificar si mi empresa aplica
-            <ChevronRight className="w-5 h-5 ml-1" />
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// Componente CTA Final
-function CTAFinal() {
-  return (
-    <section className="py-20 lg:py-32">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <div className="card p-12 lg:p-16 bg-gradient-to-br from-primary-50 to-white border-primary-100">
-          <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
-            ¿Listo para simplificar tu cumplimiento?
+      {/* MODULES — Interactive carousel like Complif */}
+      <section id="modulos" className="py-24 lg:py-32">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="text-center mb-4">
+            <span className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: '#A1A1AA' }}>Descubre cómo</span>
+          </div>
+          <h2 className="text-3xl lg:text-5xl font-extrabold text-center mb-3 leading-tight" style={{ color: '#09090B' }}>
+            Automatizamos el <span style={{ background: 'linear-gradient(135deg, #6366F1, #A855F7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>ciclo completo</span><br/>del cumplimiento
           </h2>
-          <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
-            Únete a las empresas que ya generan su documentación SAGRILAFT de forma automática. 
-            Solicita tu acceso gratuito hoy.
-          </p>
-          <Link href="/solicitar" className="btn-primary text-lg px-8 py-4">
-            Solicitar acceso gratuito
-            <ArrowRight className="w-5 h-5 ml-2" />
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}
+          <p className="text-center text-[15px] mb-12 max-w-xl mx-auto" style={{ color: '#71717A' }}>De la generación documental al monitoreo continuo</p>
 
-// Footer
-function Footer() {
-  return (
-    <footer className="bg-gray-50 border-t border-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-primary-600 to-primary-700 rounded-lg flex items-center justify-center">
-              <Shield className="w-4 h-4 text-white" />
+          {/* Module tabs */}
+          <div className="flex items-center justify-center gap-3 mb-12 flex-wrap">
+            {modules.map((m, i) => (
+              <button key={i} onClick={() => setActiveModule(i)}
+                className="px-5 py-2.5 rounded-full text-[13px] font-semibold transition-all"
+                style={activeModule === i ? { background: m.color, color: '#fff', boxShadow: `0 4px 20px ${m.color}40` } : { background: '#F4F4F5', color: '#71717A' }}>
+                {m.name}
+              </button>
+            ))}
+          </div>
+
+          {/* Active module content */}
+          <div className="grid lg:grid-cols-2 gap-12 items-center max-w-5xl mx-auto">
+            <div>
+              <div className="text-4xl mb-4">{modules[activeModule].icon}</div>
+              <h3 className="text-2xl font-extrabold mb-3" style={{ color: '#18181B' }}>{modules[activeModule].name}</h3>
+              <div className="w-12 h-1 rounded-full mb-4" style={{ background: modules[activeModule].color }}></div>
+              <p className="text-[15px] leading-relaxed mb-6" style={{ color: '#52525B' }}>{modules[activeModule].desc}</p>
+              <div className="space-y-3">
+                {modules[activeModule].features.map((f, j) => (
+                  <div key={j} className="flex items-center gap-3 text-[14px]" style={{ color: '#3F3F46' }}>
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black text-white flex-shrink-0" style={{ background: modules[activeModule].color }}>
+                      {String(j + 1).padStart(2, '0')}
+                    </div>
+                    {f}
+                  </div>
+                ))}
+              </div>
+              <Link href="/solicitar" className="inline-flex items-center gap-2 mt-8 px-6 py-3 rounded-xl text-[13px] font-bold text-white" style={{ background: modules[activeModule].color }}>
+                Solicitar acceso →
+              </Link>
             </div>
-            <span className="text-lg font-bold text-gray-900">Comply</span>
-          </div>
-          <p className="text-gray-500 text-sm">
-            © 2024 Comply. Cumplimiento SAGRILAFT simplificado.
-          </p>
-          <div className="flex items-center space-x-6 text-sm text-gray-500">
-            <a href="#" className="hover:text-primary-600 transition-colors">Términos</a>
-            <a href="#" className="hover:text-primary-600 transition-colors">Privacidad</a>
-            <a href="#" className="hover:text-primary-600 transition-colors">Contacto</a>
+            <div className="rounded-2xl p-8 relative overflow-hidden" style={{ background: '#F4F4F5', minHeight: '320px' }}>
+              <div className="absolute inset-0 opacity-10" style={{ background: `radial-gradient(circle at 50% 50%, ${modules[activeModule].color}, transparent 70%)` }}></div>
+              <div className="relative z-10 space-y-3">
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className="rounded-xl p-4 flex items-center gap-3" style={{ background: 'rgba(255,255,255,0.8)', border: '1px solid rgba(0,0,0,0.04)' }}>
+                    <div className="w-10 h-10 rounded-lg" style={{ background: modules[activeModule].color + '15' }}></div>
+                    <div className="flex-1">
+                      <div className="h-3 rounded-full mb-2" style={{ background: '#E4E4E7', width: `${70 + i * 5}%` }}></div>
+                      <div className="h-2 rounded-full" style={{ background: '#F4F4F5', width: `${40 + i * 10}%` }}></div>
+                    </div>
+                    <div className="w-16 h-6 rounded-full" style={{ background: modules[activeModule].color + '20' }}></div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </footer>
-  );
-}
+      </section>
 
-// Página Principal
-export default function Home() {
-  return (
-    <main>
-      <Navbar />
-      <Hero />
-      <Beneficios />
-      <ComoFunciona />
-      <Sectores />
-      <CTAFinal />
-      <Footer />
-    </main>
+      {/* AI AGENTS */}
+      <section id="agentes" className="py-24 lg:py-32 dark-section relative overflow-hidden">
+        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] rounded-full opacity-10" style={{ background: 'radial-gradient(circle, #A855F7, transparent)', filter: 'blur(100px)' }}></div>
+        <div className="relative max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="max-w-2xl mb-16">
+            <span className="text-[11px] font-bold uppercase tracking-[0.2em] mb-4 inline-block" style={{ color: '#818CF8' }}>COMPLY AI</span>
+            <h2 className="text-3xl lg:text-5xl font-extrabold text-white leading-tight mb-4">
+              Suma nuestros<br/>
+              <span style={{ color: '#C4B5FD' }}>Agents de IA</span><br/>
+              a tu equipo
+            </h2>
+            <p className="text-[15px] leading-relaxed" style={{ color: '#94A3B8' }}>
+              Agentes especializados que actúan como copilotos de cumplimiento,
+              automatizando tareas repetitivas para que tu equipo se enfoque en
+              las decisiones estratégicas.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              { name: 'Vigía', role: 'Screening Agent', desc: 'Automatiza la investigación de contrapartes contra listas restrictivas. Cruza OFAC, ONU, Procuraduría y PEPs.', features: ['Cruce contra 300+ listas', 'Alertas instantáneas', 'Reportes de debida diligencia'], gradient: 'linear-gradient(135deg, #6366F1, #818CF8)', tag: '#6366F1' },
+              { name: 'Centinela', role: 'Monitoring Agent', desc: 'Monitoreo continuo de operaciones y contrapartes. Detecta patrones inusuales y evalúa riesgos dinámicamente.', features: ['Monitoreo transaccional', 'Detección de anomalías', 'Evaluación dinámica de riesgo'], gradient: 'linear-gradient(135deg, #F59E0B, #FBBF24)', tag: '#F59E0B' },
+              { name: 'Cumplidor', role: 'Compliance Agent', desc: 'Tu copiloto de cumplimiento normativo. Genera reportes regulatorios y gestiona el calendario de obligaciones.', features: ['Reportes automáticos', 'Calendario regulatorio', 'Actualización periódica KYC'], gradient: 'linear-gradient(135deg, #10B981, #34D399)', tag: '#10B981' },
+            ].map((agent, i) => (
+              <div key={i} className="card-lift rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="h-1.5" style={{ background: agent.gradient }}></div>
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-xl font-extrabold text-white">{agent.name}</h3>
+                    <span className="text-[9px] px-2 py-0.5 rounded-full font-bold text-white" style={{ background: agent.gradient }}>NUEVO</span>
+                  </div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wider mb-4" style={{ color: '#525264' }}>{agent.role}</div>
+                  <p className="text-[13px] leading-relaxed mb-6" style={{ color: '#94A3B8' }}>{agent.desc}</p>
+                  <div className="space-y-2.5">
+                    {agent.features.map((f, j) => (
+                      <div key={j} className="flex items-center gap-2.5 text-[12px] text-white/70">
+                        <div className="w-5 h-5 rounded-md flex items-center justify-center text-[9px] font-black text-white flex-shrink-0" style={{ background: agent.gradient }}>{j + 1}</div>
+                        {f}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* SECTORS */}
+      <section id="sectores" className="py-24 lg:py-32">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <span className="text-[11px] font-bold uppercase tracking-[0.2em] mb-3 inline-block" style={{ color: '#A1A1AA' }}>Sectores APNFD</span>
+            <h2 className="text-3xl lg:text-4xl font-extrabold mb-3" style={{ color: '#09090B' }}>Personalizado para tu sector</h2>
+            <p className="text-[15px] max-w-xl mx-auto" style={{ color: '#71717A' }}>Señales de alerta, controles y riesgos específicos adaptados a tu actividad económica</p>
+          </div>
+          <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {[
+              { name: 'Inmobiliario', icon: '🏢', desc: 'Agentes inmobiliarios, constructores' },
+              { name: 'Jurídico', icon: '⚖️', desc: 'Abogados, notarías, servicios legales' },
+              { name: 'Contable', icon: '📒', desc: 'Contadores, firmas de auditoría' },
+              { name: 'Tecnología', icon: '💻', desc: 'Software, SaaS, servicios digitales' },
+              { name: 'Comercio', icon: '🏪', desc: 'Comercio general, importadores' },
+              { name: 'Otros', icon: '🏭', desc: 'Sector real, manufactura, servicios' },
+            ].map((s, i) => (
+              <div key={i} className="card-lift p-5 rounded-2xl text-center" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.05)' }}>
+                <div className="text-3xl mb-3">{s.icon}</div>
+                <div className="font-bold text-[13px] mb-1" style={{ color: '#18181B' }}>{s.name}</div>
+                <div className="text-[11px]" style={{ color: '#A1A1AA' }}>{s.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* HOW IT WORKS */}
+      <section className="py-24 lg:py-32" style={{ background: '#F4F4F5' }}>
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <span className="text-[11px] font-bold uppercase tracking-[0.2em] mb-3 inline-block" style={{ color: '#A1A1AA' }}>Así de simple</span>
+            <h2 className="text-3xl lg:text-4xl font-extrabold" style={{ color: '#09090B' }}>¿Cómo funciona?</h2>
+          </div>
+          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            {[
+              { step: '01', title: 'Sube tu documento', desc: 'Carga el Certificado de Cámara de Comercio de tu empresa en formato PDF.' },
+              { step: '02', title: 'La IA analiza', desc: 'Nuestra IA extrae datos, identifica tu sector APNFD y evalúa los riesgos específicos.' },
+              { step: '03', title: 'Descarga todo', desc: 'Recibe tu Manual de Medidas Mínimas, Matriz de Riesgo y FCC personalizados.' },
+            ].map((s, i) => (
+              <div key={i} className="text-center">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 text-xl font-black text-white" style={{ background: 'linear-gradient(135deg, #6366F1, #A855F7)' }}>{s.step}</div>
+                <h3 className="text-lg font-bold mb-2" style={{ color: '#18181B' }}>{s.title}</h3>
+                <p className="text-[14px] leading-relaxed" style={{ color: '#71717A' }}>{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="py-24 lg:py-32">
+        <div className="max-w-4xl mx-auto px-6 lg:px-8">
+          <div className="rounded-3xl p-12 lg:p-16 text-center relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #312E81 100%)' }}>
+            <div className="absolute top-0 right-0 w-80 h-80 rounded-full opacity-20" style={{ background: 'radial-gradient(circle, #818CF8, transparent)', filter: 'blur(60px)' }}></div>
+            <div className="absolute bottom-0 left-0 w-60 h-60 rounded-full opacity-15" style={{ background: 'radial-gradient(circle, #A855F7, transparent)', filter: 'blur(40px)' }}></div>
+            <div className="relative z-10">
+              <h2 className="text-3xl lg:text-4xl font-extrabold text-white mb-4 leading-tight">
+                Cumplimiento sin fricciones<br/>
+                <span style={{ color: '#A5B4FC' }}>empieza aquí</span>
+              </h2>
+              <p className="text-[15px] mb-8 max-w-lg mx-auto" style={{ color: '#94A3B8' }}>
+                Únete a las empresas que están automatizando su cumplimiento LA/FT/FPADM
+                con inteligencia artificial.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <Link href="/solicitar" className="px-8 py-4 rounded-2xl text-[15px] font-bold text-white transition-all hover:scale-[1.02]" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', boxShadow: '0 8px 30px rgba(99,102,241,0.3)' }}>
+                  Solicitar acceso gratuito →
+                </Link>
+                <Link href="/login" className="px-8 py-4 rounded-2xl text-[15px] font-semibold transition-all" style={{ color: '#E0E7FF', border: '1px solid rgba(255,255,255,0.15)' }}>
+                  Ya tengo cuenta
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer style={{ background: '#09090B', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-16">
+          <div className="grid md:grid-cols-4 gap-12">
+            <div>
+              <div className="flex items-center gap-2.5 mb-4">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-black text-xs" style={{ background: 'linear-gradient(135deg, #6366F1, #A855F7)' }}>C</div>
+                <span className="text-lg font-bold text-white">Comply</span>
+              </div>
+              <p className="text-[13px] leading-relaxed" style={{ color: '#525264' }}>
+                Plataforma de cumplimiento LA/FT/FPADM impulsada por inteligencia artificial
+                para empresas del sector real colombiano.
+              </p>
+            </div>
+            {[
+              { title: 'Módulos', items: ['Generación Documental', 'Screening de Listas', 'Monitoreo Continuo', 'Reportes Regulatorios'] },
+              { title: 'AI Agents', items: ['Vigía — Screening', 'Centinela — Monitoreo', 'Cumplidor — Compliance'] },
+              { title: 'Legal', items: ['Términos de Servicio', 'Política de Privacidad', 'Tratamiento de Datos'] },
+            ].map((col, i) => (
+              <div key={i}>
+                <h4 className="text-[11px] font-bold uppercase tracking-[0.15em] mb-4" style={{ color: '#71717A' }}>{col.title}</h4>
+                <ul className="space-y-2.5">
+                  {col.items.map((item, j) => (
+                    <li key={j} className="text-[13px]" style={{ color: '#525264' }}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <div className="mt-16 pt-8 flex items-center justify-between" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <div className="text-[12px]" style={{ color: '#3F3F46' }}>© 2026 Comply SAGRILAFT. Todos los derechos reservados.</div>
+            <div className="text-[12px]" style={{ color: '#3F3F46' }}>Hecho en Colombia 🇨🇴</div>
+          </div>
+        </div>
+      </footer>
+    </div>
   );
 }
