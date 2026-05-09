@@ -86,6 +86,9 @@ export default function DashboardPage() {
   });
   const [loadingFer, setLoadingFer] = useState(false);
   const [ferPrefilledFrom, setFerPrefilledFrom] = useState<string | null>(null);
+  const [ferContraparteId, setFerContraparteId] = useState<string>('');
+  const [ferAnalyzing, setFerAnalyzing] = useState(false);
+  const [ferSuggested, setFerSuggested] = useState(false);
   const trabajadorFileRef = useRef<HTMLInputElement>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -229,10 +232,12 @@ export default function DashboardPage() {
   const handleOpenFer = (opts?: { trabajador?: any; contraparte?: any }) => {
     const resetForm = {
       reportante_nombre: '', reportante_cargo: '', reportante_area: '', reportante_superior: empresaGuardada?.representante_legal || '',
-      descripcion: '', naturaleza: 'operacion_inusual', impacto: 'moderado', probabilidad: 'moderada',
+      descripcion: '', naturaleza: '', impacto: '', probabilidad: '',
       contraparte_nombre: '', continuar: true, justificacion: '',
       plan_objetivo: 'reducir', plan_descripcion: '', plan_monitoreo: 'trimestral',
     };
+    setFerContraparteId('');
+    setFerSuggested(false);
     if (opts?.trabajador) {
       resetForm.reportante_nombre = opts.trabajador.razon_social || '';
       resetForm.reportante_cargo = opts.trabajador.datos_extraidos?.cargo || '';
@@ -240,6 +245,7 @@ export default function DashboardPage() {
       setFerPrefilledFrom(opts.trabajador.razon_social || null);
     } else if (opts?.contraparte) {
       resetForm.contraparte_nombre = opts.contraparte.razon_social || '';
+      setFerContraparteId(opts.contraparte.id || '');
       setFerPrefilledFrom(opts.contraparte.razon_social || null);
     } else {
       setFerPrefilledFrom(null);
@@ -1415,8 +1421,28 @@ export default function DashboardPage() {
 
                     <div>
                       <div className="text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: '#D97706' }}>Contraparte involucrada (opcional)</div>
-                      <input type="text" value={ferForm.contraparte_nombre} onChange={e => setFerForm(p => ({...p, contraparte_nombre: e.target.value}))}
-                        className="w-full px-3 py-2 rounded-lg text-[12px] outline-none" style={{ border: '1px solid #E0E0E0' }} placeholder="Nombre de la contraparte, si aplica" />
+                      {contrapartes.filter(c => c.tipo_relacion !== 'empleado').length > 0 ? (
+                        <select value={ferContraparteId} onChange={e => {
+                          const id = e.target.value;
+                          setFerContraparteId(id);
+                          if (id === '') { setFerForm(p => ({...p, contraparte_nombre: ''})); }
+                          else if (id === '__manual__') { setFerForm(p => ({...p, contraparte_nombre: ''})); }
+                          else { const cp = contrapartes.find(c => c.id === id); setFerForm(p => ({...p, contraparte_nombre: cp?.razon_social || ''})); }
+                        }} className="w-full px-3 py-2 rounded-lg text-[12px] outline-none" style={{ border: '1px solid #E0E0E0', background: '#fff' }}>
+                          <option value="">Sin contraparte</option>
+                          {contrapartes.filter(c => c.tipo_relacion !== 'empleado').map(c => (
+                            <option key={c.id} value={c.id}>{c.razon_social} — {c.tipo_relacion} {c.nit_cc ? `(${c.nit_cc})` : ''}</option>
+                          ))}
+                          <option value="__manual__">Otra (escribir nombre)</option>
+                        </select>
+                      ) : (
+                        <input type="text" value={ferForm.contraparte_nombre} onChange={e => setFerForm(p => ({...p, contraparte_nombre: e.target.value}))}
+                          className="w-full px-3 py-2 rounded-lg text-[12px] outline-none" style={{ border: '1px solid #E0E0E0' }} placeholder="Nombre de la contraparte, si aplica" />
+                      )}
+                      {ferContraparteId === '__manual__' && (
+                        <input type="text" value={ferForm.contraparte_nombre} onChange={e => setFerForm(p => ({...p, contraparte_nombre: e.target.value}))}
+                          className="w-full mt-2 px-3 py-2 rounded-lg text-[12px] outline-none" style={{ border: '1px solid #E0E0E0' }} placeholder="Nombre de la contraparte" />
+                      )}
                     </div>
 
                     <div>
@@ -1426,9 +1452,28 @@ export default function DashboardPage() {
                         placeholder="Describe detalladamente el evento de riesgo identificado: fechas, personas, montos, circunstancias..." />
                     </div>
 
-                    <button onClick={() => setFerStep(2)} disabled={!ferForm.reportante_nombre || !ferForm.descripcion}
+                    <button onClick={async () => {
+                      if (ferForm.descripcion.length >= 20) {
+                        setFerAnalyzing(true);
+                        try {
+                          const resp = await fetch('/api/analizar-evento', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ descripcion: ferForm.descripcion }) });
+                          const result = await resp.json();
+                          if (result.success && result.sugerencia) {
+                            setFerForm(p => ({ ...p, naturaleza: result.sugerencia.naturaleza, impacto: result.sugerencia.impacto, probabilidad: result.sugerencia.probabilidad }));
+                            setFerSuggested(true);
+                          }
+                        } catch {}
+                        setFerAnalyzing(false);
+                      }
+                      setFerStep(2);
+                    }} disabled={!ferForm.reportante_nombre || !ferForm.descripcion || ferAnalyzing}
                       className="w-full py-2.5 rounded-lg text-[13px] font-semibold text-white disabled:opacity-40" style={{ background: '#D97706' }}>
-                      Siguiente: Evaluar riesgo
+                      {ferAnalyzing ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>
+                          Analizando evento...
+                        </span>
+                      ) : 'Siguiente: Evaluar riesgo'}
                     </button>
                   </div>
                 )}
@@ -1436,6 +1481,15 @@ export default function DashboardPage() {
                 {/* FER STEP 2: Evaluación del riesgo */}
                 {ferStep === 2 && (
                   <div className="space-y-4">
+                    {ferSuggested && (
+                      <div className="p-3 rounded-lg flex items-start gap-2" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                        <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="#D97706" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                        <div>
+                          <div className="text-[11px] font-semibold" style={{ color: '#92400E' }}>Clasificación sugerida por IA</div>
+                          <div className="text-[10px] mt-0.5" style={{ color: '#B45309' }}>Basada en tu descripción. Revisa y ajusta si es necesario.</div>
+                        </div>
+                      </div>
+                    )}
                     <div>
                       <div className="text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: '#D97706' }}>Naturaleza del evento</div>
                       <div className="grid grid-cols-2 gap-2">
