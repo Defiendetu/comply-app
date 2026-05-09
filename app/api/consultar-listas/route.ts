@@ -225,16 +225,17 @@ async function consultarPEPs(nombre: string, identificacion?: string): Promise<R
 }
 
 // ==========================================
-// Procuraduría - Apify actor
+// Procuraduría - Lanza scraper y devuelve runId (asíncrono)
 // ==========================================
-async function consultarProcuraduria(identificacion: string, apifyToken?: string): Promise<ResultadoLista> {
-  const resultado: ResultadoLista = {
+async function iniciarProcuraduria(identificacion: string, apifyToken?: string): Promise<ResultadoLista & { runId?: string }> {
+  const resultado: ResultadoLista & { runId?: string } = {
     lista: 'Antecedentes disciplinarios - Procuraduría',
     fuente: 'Procuraduría General de la Nación',
     tipo: 'nacional',
-    resultado: 'sin_coincidencia',
+    resultado: 'pendiente' as any,
     coincidencias: [],
     url: 'https://www.procuraduria.gov.co/Pages/Consulta-de-Antecedentes.aspx',
+    detalles: 'Consultando Procuraduría...',
   };
 
   if (!apifyToken || !identificacion) {
@@ -250,7 +251,7 @@ async function consultarProcuraduria(identificacion: string, apifyToken?: string
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cedula: identificacion }),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(15000),
       }
     );
 
@@ -261,58 +262,10 @@ async function consultarProcuraduria(identificacion: string, apifyToken?: string
     }
 
     const runData = await runResp.json();
-    const runId = runData.data?.id;
-    if (!runId) {
+    resultado.runId = runData.data?.id;
+    if (!resultado.runId) {
       resultado.resultado = 'no_consultado';
       resultado.detalles = 'No se pudo obtener ID del run';
-      return resultado;
-    }
-
-    let attempts = 0;
-    while (attempts < 12) {
-      await new Promise(r => setTimeout(r, 5000));
-      const statusResp = await fetch(
-        `https://api.apify.com/v2/actor-runs/${runId}?token=${apifyToken}`
-      );
-      const statusData = await statusResp.json();
-      const status = statusData.data?.status;
-
-      if (status === 'SUCCEEDED') {
-        const datasetId = statusData.data?.defaultDatasetId;
-        const itemsResp = await fetch(
-          `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apifyToken}`
-        );
-        const items = await itemsResp.json();
-
-        if (items.length > 0) {
-          for (const item of items) {
-            if (item.tiene_antecedentes || item.registros?.length > 0) {
-              resultado.resultado = 'coincidencia_positiva';
-              const registros = item.registros || [];
-              for (const reg of registros.slice(0, 3)) {
-                resultado.coincidencias.push(
-                  `Sanción: ${reg.tipo_sancion || 'N/A'} | Estado: ${reg.estado || 'N/A'} | Entidad: ${reg.entidad || 'N/A'}`
-                );
-              }
-            } else {
-              resultado.detalles = 'Sin antecedentes disciplinarios registrados';
-            }
-          }
-        } else {
-          resultado.detalles = 'Consulta completada sin resultados';
-        }
-        break;
-      } else if (status === 'FAILED' || status === 'ABORTED') {
-        resultado.resultado = 'no_consultado';
-        resultado.detalles = `Scraper terminó con estado: ${status}`;
-        break;
-      }
-      attempts++;
-    }
-
-    if (attempts >= 12) {
-      resultado.resultado = 'no_consultado';
-      resultado.detalles = 'Timeout esperando respuesta del scraper';
     }
   } catch (err: any) {
     resultado.resultado = 'no_consultado';
@@ -393,41 +346,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Nombre requerido' }, { status: 400 });
     }
 
-    const conTimeout = <T>(promesa: Promise<T>, ms: number, fallback: T): Promise<T> =>
-      Promise.race([
-        promesa,
-        new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms)),
-      ]);
-
-    const fallbackContraloria: ResultadoLista = {
-      lista: 'Responsables fiscales - Contraloría',
-      fuente: 'Contraloría General de la República',
-      tipo: 'nacional',
-      resultado: 'no_consultado',
-      coincidencias: [],
-      url: 'https://cfiscal.contraloria.gov.co/certificados/certificadopersonanatural.aspx',
-      detalles: 'Timeout — consulte manualmente en el enlace',
-    };
-
-    const fallbackProcuraduria: ResultadoLista = {
-      lista: 'Antecedentes disciplinarios - Procuraduría',
-      fuente: 'Procuraduría General de la Nación',
-      tipo: 'nacional',
-      resultado: 'no_consultado',
-      coincidencias: [],
-      url: 'https://www.procuraduria.gov.co/Pages/Consulta-de-Antecedentes.aspx',
-      detalles: 'Timeout — consulte manualmente en el enlace',
-    };
-
     const [ofac, onu, peps, procuraduria, contraloria] = await Promise.all([
       consultarOFAC(nombre, identificacion),
       consultarONU(nombre),
       consultarPEPs(nombre, identificacion),
-      conTimeout(consultarProcuraduria(identificacion, apifyToken), 45000, fallbackProcuraduria),
+      iniciarProcuraduria(identificacion, apifyToken),
       iniciarContraloria(identificacion, apifyToken),
     ]);
 
+    const procuraduriaRunId = procuraduria.runId;
     const contraloriaRunId = contraloria.runId;
+    delete procuraduria.runId;
     delete contraloria.runId;
     const resultados: ResultadoLista[] = [ofac, onu, peps, procuraduria, contraloria];
 
@@ -465,6 +394,7 @@ export async function POST(request: NextRequest) {
       listas_no_consultadas: noConsultadas,
       recomendacion,
       resultados,
+      procuraduriaRunId,
       contraloriaRunId,
     });
   } catch (error: any) {

@@ -265,37 +265,39 @@ export default function DashboardPage() {
       const screenResult = await screenResp.json();
       if (screenResult.success) {
         setScreeningResultados(screenResult);
-        if (screenResult.contraloriaRunId) {
-          pollContraloriaStatus(screenResult.contraloriaRunId, screenResult);
-        }
+        const pendingPolls: Promise<void>[] = [];
+        if (screenResult.procuraduriaRunId) pendingPolls.push(pollScraperStatus(screenResult.procuraduriaRunId, 'procuraduria', 'Procuraduría'));
+        if (screenResult.contraloriaRunId) pendingPolls.push(pollScraperStatus(screenResult.contraloriaRunId, 'contraloria', 'Contraloría'));
       }
       else { setScreeningResultados({ error: true, message: screenResult.error }); }
     } catch (err) { setScreeningResultados({ error: true, message: 'Error de conexión' }); }
     setLoadingScreening(false);
   };
 
-  const pollContraloriaStatus = async (runId: string, currentResults: any) => {
-    for (let i = 0; i < 18; i++) {
-      await new Promise(r => setTimeout(r, 10000));
+  const pollScraperStatus = async (runId: string, tipo: string, listaNombre: string) => {
+    for (let i = 0; i < 24; i++) {
+      await new Promise(r => setTimeout(r, 8000));
       try {
-        const resp = await fetch('/api/consultar-contraloria-status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runId }) });
+        const resp = await fetch('/api/scraper-status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runId, tipo }) });
         const data = await resp.json();
         if (data.status === 'completed' && data.resultado) {
           setScreeningResultados((prev: any) => {
             if (!prev || prev.error) return prev;
             const updated = { ...prev };
             updated.resultados = prev.resultados.map((r: any) =>
-              r.lista.includes('Contraloría') ? data.resultado : r
+              r.lista.includes(listaNombre) ? data.resultado : r
             );
+            const pendientes = updated.resultados.filter((r: any) => r.resultado === 'pendiente').length;
             const noConsultadas = updated.resultados.filter((r: any) => r.resultado === 'no_consultado').length;
             const consultadas = updated.resultados.filter((r: any) => r.resultado !== 'no_consultado' && r.resultado !== 'pendiente').length;
             updated.listas_consultadas = consultadas;
             updated.listas_no_consultadas = noConsultadas;
+            updated.pendientes = pendientes;
             const hayPositiva = updated.resultados.some((r: any) => r.resultado === 'coincidencia_positiva');
             const hayParcial = updated.resultados.some((r: any) => r.resultado === 'coincidencia_parcial');
             if (hayPositiva) updated.conclusion = 'coincidencia_positiva';
             else if (hayParcial) updated.conclusion = 'coincidencia_parcial';
-            else if (consultadas === 0) updated.conclusion = 'no_consultado';
+            else if (consultadas === 0 && pendientes === 0) updated.conclusion = 'no_consultado';
             else updated.conclusion = 'sin_coincidencia';
             return updated;
           });
@@ -2467,6 +2469,27 @@ export default function DashboardPage() {
                       <p className="text-[12px]" style={{ color: '#555' }}>{screeningResultados.recomendacion}</p>
                     </div>
 
+                    {/* Progress bar */}
+                    {(() => {
+                      const todos = screeningResultados.resultados || [];
+                      const total = todos.length;
+                      const listos = todos.filter((r: any) => r.resultado !== 'pendiente').length;
+                      const pct = total > 0 ? Math.round((listos / total) * 100) : 0;
+                      const hayPendientes = listos < total;
+                      return hayPendientes ? (
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[11px] font-medium" style={{ color: '#555' }}>{listos} de {total} listas verificadas</span>
+                            <span className="text-[11px]" style={{ color: '#888' }}>{pct}%</span>
+                          </div>
+                          <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: '#E5E7EB' }}>
+                            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #3B82F6, #2563EB)' }}></div>
+                          </div>
+                          <p className="text-[10px] mt-1" style={{ color: '#999' }}>Las listas con scrapers (Procuraduría, Contraloría) pueden tardar hasta 2 minutos...</p>
+                        </div>
+                      ) : null;
+                    })()}
+
                     {/* Results per list */}
                     <div className="space-y-2">
                       {(screeningResultados.resultados || []).map((r: any, i: number) => (
@@ -2483,7 +2506,7 @@ export default function DashboardPage() {
                               background: r.resultado === 'coincidencia_positiva' ? '#FEE2E2' : r.resultado === 'coincidencia_parcial' ? '#FEF3C7' : r.resultado === 'no_consultado' ? '#FEF3C7' : r.resultado === 'pendiente' ? '#DBEAFE' : '#D1FAE5',
                               color: r.resultado === 'coincidencia_positiva' ? '#991B1B' : r.resultado === 'coincidencia_parcial' ? '#92400E' : r.resultado === 'no_consultado' ? '#92400E' : r.resultado === 'pendiente' ? '#1E40AF' : '#065F46'
                             }}>
-                              {r.resultado === 'coincidencia_positiva' ? 'Coincidencia' : r.resultado === 'coincidencia_parcial' ? 'Parcial' : r.resultado === 'no_consultado' ? 'No consultado' : r.resultado === 'pendiente' ? 'Consultando...' : 'Limpio'}
+                              {r.resultado === 'coincidencia_positiva' ? 'Coincidencia' : r.resultado === 'coincidencia_parcial' ? 'Parcial' : r.resultado === 'no_consultado' ? 'No consultado' : r.resultado === 'pendiente' ? (<span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin"></span> Consultando</span>) : 'Limpio'}
                             </span>
                           </div>
                           <p className="text-[10px]" style={{ color: '#888' }}>{r.fuente}</p>
@@ -2503,10 +2526,15 @@ export default function DashboardPage() {
                     <div className="flex gap-3 pt-3 border-t" style={{ borderColor: '#E0E0E0' }}>
                       <button onClick={() => { setScreeningResultados(null); setScreeningContraparte(null); }}
                         className="px-4 py-2.5 rounded-lg text-[13px] font-medium" style={{ border: '1px solid #E0E0E0', color: '#555' }}>Cerrar</button>
-                      <button onClick={handleDescargarListasDoc}
-                        className="flex-1 py-2.5 rounded-lg text-[13px] font-semibold text-white" style={{ background: '#2563EB' }}>
-                        Descargar Documento con Resultados
-                      </button>
+                      {(() => {
+                        const hayPendientes = (screeningResultados.resultados || []).some((r: any) => r.resultado === 'pendiente');
+                        return (
+                          <button onClick={handleDescargarListasDoc} disabled={hayPendientes}
+                            className="flex-1 py-2.5 rounded-lg text-[13px] font-semibold text-white transition-opacity" style={{ background: hayPendientes ? '#93C5FD' : '#2563EB', cursor: hayPendientes ? 'not-allowed' : 'pointer' }}>
+                            {hayPendientes ? 'Esperando resultados pendientes...' : 'Descargar Documento con Resultados'}
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
