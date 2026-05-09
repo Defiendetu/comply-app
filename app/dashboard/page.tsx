@@ -190,6 +190,17 @@ export default function DashboardPage() {
     } catch (err) { console.error('Error generating FCC:', err); setError('Error de conexión al generar FCC'); }
   };
 
+  const handleGenerarListasRestrictivas = async (contraparte: any) => {
+    if (!empresaGuardada) return;
+    try {
+      const cpData = { ...contraparte, ...(contraparte.datos_extraidos || {}), razon_social: contraparte.razon_social || contraparte.datos_extraidos?.razon_social || '', nit_cc: contraparte.nit_cc || contraparte.datos_extraidos?.nit_cc || contraparte.datos_extraidos?.nit || '', representante_legal: contraparte.representante_legal || contraparte.datos_extraidos?.representante_legal || '', ciudad: contraparte.ciudad || contraparte.datos_extraidos?.ciudad || '', direccion: contraparte.datos_extraidos?.direccion || '' };
+      const resp = await fetch('/api/generar-listas-restrictivas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, CONTRAPARTE: cpData }) });
+      const result = await resp.json();
+      if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'); await saveDocumento(empresaGuardada.id, 'listas_restrictivas', result.filename, result.base64); if (user) await logActivity(empresaGuardada.id, user.email, 'generar_listas_restrictivas', `Contraparte: ${cpData.razon_social}`); }
+      else { setError('Error generando Listas Restrictivas: ' + (result.error || 'intenta de nuevo')); }
+    } catch (err) { console.error('Error generating listas restrictivas:', err); setError('Error de conexión al generar Listas Restrictivas'); }
+  };
+
   const handleContratoTrabajador = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     if (file.type !== 'application/pdf') { setError('Solo archivos PDF'); return; }
@@ -295,10 +306,10 @@ export default function DashboardPage() {
   };
 
   const dl = (b64: string, fn: string, mime: string) => { const bc = atob(b64); const bn = new Array(bc.length); for (let i=0;i<bc.length;i++) bn[i]=bc.charCodeAt(i); const blob = new Blob([new Uint8Array(bn)],{type:mime}); const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=fn; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); };
-  const getMimeForType = (tipo: string) => tipo === 'manual' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  const getMimeForType = (tipo: string) => ['manual', 'listas_restrictivas'].includes(tipo) ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
   const getDocLabel = (tipo: string) => ({ manual: 'Manual de Medidas Mínimas', matriz: 'Matriz de Riesgo', fcc: 'Formulario FCC', fer: 'Evaluación de Riesgos', reporte_eventos: 'Reporte de Eventos', declaracion_trabajadores: 'Declaración de Trabajadores', listas_restrictivas: 'Listas Restrictivas' }[tipo] || tipo);
-  const getDocColor = (tipo: string) => ({ manual: '#2563EB', matriz: '#059669', fcc: '#7C3AED', fer: '#D97706', reporte_eventos: '#DC2626' }[tipo] || '#2563EB');
-  const getDocExt = (tipo: string) => tipo === 'manual' ? 'DOCX' : 'XLSX';
+  const getDocColor = (tipo: string) => ({ manual: '#2563EB', matriz: '#059669', fcc: '#7C3AED', fer: '#D97706', reporte_eventos: '#DC2626', listas_restrictivas: '#1E40AF' }[tipo] || '#2563EB');
+  const getDocExt = (tipo: string) => ['manual', 'listas_restrictivas'].includes(tipo) ? 'DOCX' : 'XLSX';
 
   if (!user) return null;
 
@@ -744,6 +755,7 @@ export default function DashboardPage() {
                           {c.estado === 'activo' ? 'Activo' : c.estado}
                         </span>
                         <button onClick={() => handleGenerarFCCContraparte(c)} className="px-3 py-1 rounded-lg text-[11px] font-medium text-white" style={{ background: '#7C3AED' }}>FCC</button>
+                        <button onClick={() => handleGenerarListasRestrictivas(c)} className="px-3 py-1 rounded-lg text-[11px] font-medium text-white" style={{ background: '#2563EB' }}>Listas</button>
                         <button onClick={async () => { if (confirm('Eliminar contraparte?')) { await supabase.from('contrapartes').delete().eq('id', c.id); setContrapartes(prev => prev.filter(x => x.id !== c.id)); }}} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-50" style={{ color: '#DC2626' }}>
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
