@@ -444,12 +444,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Nombre requerido' }, { status: 400 });
     }
 
-    function conTimeout<T>(promesa: Promise<T>, ms: number, fallback: T): Promise<T> {
-      return Promise.race([
+    const conTimeout = <T>(promesa: Promise<T>, ms: number, fallback: T): Promise<T> =>
+      Promise.race([
         promesa,
         new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms)),
       ]);
-    }
 
     const fallbackContraloria: ResultadoLista = {
       lista: 'Responsables fiscales - Contraloría',
