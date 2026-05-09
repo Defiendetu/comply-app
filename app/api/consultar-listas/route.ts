@@ -6,7 +6,7 @@ interface ResultadoLista {
   lista: string;
   fuente: string;
   tipo: 'internacional' | 'nacional';
-  resultado: 'sin_coincidencia' | 'coincidencia_parcial' | 'coincidencia_positiva';
+  resultado: 'sin_coincidencia' | 'coincidencia_parcial' | 'coincidencia_positiva' | 'no_consultado';
   coincidencias: string[];
   detalles?: string;
   url?: string;
@@ -61,6 +61,7 @@ async function consultarOFAC(nombre: string, identificacion?: string): Promise<R
       signal: AbortSignal.timeout(15000),
     });
     if (!resp.ok) {
+      resultado.resultado = 'no_consultado';
       resultado.detalles = 'No se pudo acceder a la lista OFAC';
       return resultado;
     }
@@ -102,6 +103,7 @@ async function consultarOFAC(nombre: string, identificacion?: string): Promise<R
       if (resultado.coincidencias.length >= 5) break;
     }
   } catch (err: any) {
+    resultado.resultado = 'no_consultado';
     resultado.detalles = `Error consultando OFAC: ${err.message}`;
   }
 
@@ -132,6 +134,7 @@ async function consultarOpenSanctions(nombre: string): Promise<ResultadoLista> {
     );
 
     if (!resp.ok) {
+      resultado.resultado = 'no_consultado';
       resultado.detalles = 'No se pudo acceder a OpenSanctions API';
       return resultado;
     }
@@ -153,6 +156,7 @@ async function consultarOpenSanctions(nombre: string): Promise<ResultadoLista> {
       }
     }
   } catch (err: any) {
+    resultado.resultado = 'no_consultado';
     resultado.detalles = `Error consultando OpenSanctions: ${err.message}`;
   }
 
@@ -183,6 +187,7 @@ async function consultarPEPs(nombre: string, identificacion?: string): Promise<R
 
     const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
     if (!resp.ok) {
+      resultado.resultado = 'no_consultado';
       resultado.detalles = 'No se pudo acceder a la base de datos de PEPs';
       return resultado;
     }
@@ -204,6 +209,7 @@ async function consultarPEPs(nombre: string, identificacion?: string): Promise<R
       }
     }
   } catch (err: any) {
+    resultado.resultado = 'no_consultado';
     resultado.detalles = `Error consultando PEPs: ${err.message}`;
   }
 
@@ -224,6 +230,7 @@ async function consultarProcuraduria(identificacion: string, apifyToken?: string
   };
 
   if (!apifyToken || !identificacion) {
+    resultado.resultado = 'no_consultado';
     resultado.detalles = 'Consulta manual requerida (sin token Apify o sin identificación)';
     return resultado;
   }
@@ -316,6 +323,7 @@ async function consultarContraloria(identificacion: string, apifyToken?: string)
   };
 
   if (!apifyToken || !identificacion) {
+    resultado.resultado = 'no_consultado';
     resultado.detalles = 'Consulta manual requerida (sin token Apify o sin identificación)';
     return resultado;
   }
@@ -416,18 +424,23 @@ export async function POST(request: NextRequest) {
     const totalCoincidencias = resultados.reduce((sum, r) => sum + r.coincidencias.length, 0);
     const hayPositiva = resultados.some(r => r.resultado === 'coincidencia_positiva');
     const hayParcial = resultados.some(r => r.resultado === 'coincidencia_parcial');
+    const noConsultadas = resultados.filter(r => r.resultado === 'no_consultado').length;
+    const consultadas = resultados.filter(r => r.resultado !== 'no_consultado').length;
 
-    let conclusion: 'sin_coincidencia' | 'coincidencia_parcial' | 'coincidencia_positiva' = 'sin_coincidencia';
+    let conclusion: 'sin_coincidencia' | 'coincidencia_parcial' | 'coincidencia_positiva' | 'no_consultado' = 'sin_coincidencia';
     if (hayPositiva) conclusion = 'coincidencia_positiva';
     else if (hayParcial) conclusion = 'coincidencia_parcial';
+    else if (consultadas === 0) conclusion = 'no_consultado';
 
     let recomendacion = '';
     if (conclusion === 'coincidencia_positiva') {
       recomendacion = 'Se encontraron coincidencias positivas. Se recomienda escalar inmediatamente al Oficial de Cumplimiento y considerar un Reporte de Operación Sospechosa (ROS) a la UIAF.';
     } else if (conclusion === 'coincidencia_parcial') {
       recomendacion = 'Se encontraron coincidencias parciales (posible homonimia). Se recomienda realizar verificación adicional antes de continuar la relación comercial.';
+    } else if (conclusion === 'no_consultado') {
+      recomendacion = 'No se pudo consultar ninguna lista. Verifique la conexión e intente nuevamente, o realice la consulta manualmente.';
     } else {
-      recomendacion = 'No se encontraron coincidencias en las listas consultadas. Se recomienda mantener el monitoreo periódico según la política SAGRILAFT/medidas mínimas.';
+      recomendacion = `No se encontraron coincidencias en ${consultadas} de ${resultados.length} listas consultadas.${noConsultadas > 0 ? ` ${noConsultadas} lista(s) no pudieron ser consultadas — verifique manualmente.` : ''} Se recomienda mantener el monitoreo periódico.`;
     }
 
     return NextResponse.json({
@@ -437,6 +450,8 @@ export async function POST(request: NextRequest) {
       fecha_consulta: new Date().toISOString(),
       conclusion,
       total_coincidencias: totalCoincidencias,
+      listas_consultadas: consultadas,
+      listas_no_consultadas: noConsultadas,
       recomendacion,
       resultados,
     });

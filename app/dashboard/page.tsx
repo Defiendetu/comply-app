@@ -2404,19 +2404,28 @@ export default function DashboardPage() {
                     {/* Conclusion */}
                     <div className="p-4 rounded-xl" style={{
                       background: screeningResultados.conclusion === 'coincidencia_positiva' ? '#FEF2F2'
-                        : screeningResultados.conclusion === 'coincidencia_parcial' ? '#FFFBEB' : '#ECFDF5',
+                        : screeningResultados.conclusion === 'coincidencia_parcial' ? '#FFFBEB'
+                        : screeningResultados.conclusion === 'no_consultado' ? '#FFFBEB' : '#ECFDF5',
                       border: `1px solid ${screeningResultados.conclusion === 'coincidencia_positiva' ? '#FECACA'
-                        : screeningResultados.conclusion === 'coincidencia_parcial' ? '#FDE68A' : '#BBF7D0'}`
+                        : screeningResultados.conclusion === 'coincidencia_parcial' ? '#FDE68A'
+                        : screeningResultados.conclusion === 'no_consultado' ? '#FDE68A' : '#BBF7D0'}`
                     }}>
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xl">{screeningResultados.conclusion === 'coincidencia_positiva' ? '🚨' : screeningResultados.conclusion === 'coincidencia_parcial' ? '⚠️' : '✅'}</span>
+                        <span className="text-xl">{screeningResultados.conclusion === 'coincidencia_positiva' ? '🚨' : screeningResultados.conclusion === 'coincidencia_parcial' ? '⚠️' : screeningResultados.conclusion === 'no_consultado' ? '❓' : '✅'}</span>
                         <span className="text-[14px] font-bold" style={{
                           color: screeningResultados.conclusion === 'coincidencia_positiva' ? '#991B1B'
-                            : screeningResultados.conclusion === 'coincidencia_parcial' ? '#92400E' : '#065F46'
+                            : screeningResultados.conclusion === 'coincidencia_parcial' ? '#92400E'
+                            : screeningResultados.conclusion === 'no_consultado' ? '#92400E' : '#065F46'
                         }}>
                           {screeningResultados.conclusion === 'coincidencia_positiva' ? 'COINCIDENCIA POSITIVA'
-                            : screeningResultados.conclusion === 'coincidencia_parcial' ? 'COINCIDENCIA PARCIAL (posible homonimia)' : 'SIN COINCIDENCIAS'}
+                            : screeningResultados.conclusion === 'coincidencia_parcial' ? 'COINCIDENCIA PARCIAL (posible homonimia)'
+                            : screeningResultados.conclusion === 'no_consultado' ? 'NO SE PUDO CONSULTAR' : 'SIN COINCIDENCIAS'}
                         </span>
+                        {screeningResultados.listas_consultadas !== undefined && (
+                          <span className="text-[11px] ml-auto" style={{ color: '#888' }}>
+                            {screeningResultados.listas_consultadas}/{screeningResultados.listas_consultadas + screeningResultados.listas_no_consultadas} listas consultadas
+                          </span>
+                        )}
                       </div>
                       <p className="text-[12px]" style={{ color: '#555' }}>{screeningResultados.recomendacion}</p>
                     </div>
@@ -2424,7 +2433,7 @@ export default function DashboardPage() {
                     {/* Results per list */}
                     <div className="space-y-2">
                       {(screeningResultados.resultados || []).map((r: any, i: number) => (
-                        <div key={i} className="p-3 rounded-lg" style={{ border: '1px solid #E5E7EB', background: r.resultado !== 'sin_coincidencia' ? (r.resultado === 'coincidencia_positiva' ? '#FEF2F2' : '#FFFBEB') : '#FAFAFA' }}>
+                        <div key={i} className="p-3 rounded-lg" style={{ border: '1px solid #E5E7EB', background: r.resultado === 'coincidencia_positiva' ? '#FEF2F2' : r.resultado === 'coincidencia_parcial' ? '#FFFBEB' : r.resultado === 'no_consultado' ? '#FFFBEB' : '#FAFAFA' }}>
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-2">
                               <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{
@@ -2434,10 +2443,10 @@ export default function DashboardPage() {
                               <span className="text-[13px] font-semibold" style={{ color: '#111' }}>{r.lista}</span>
                             </div>
                             <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{
-                              background: r.resultado === 'coincidencia_positiva' ? '#FEE2E2' : r.resultado === 'coincidencia_parcial' ? '#FEF3C7' : '#D1FAE5',
-                              color: r.resultado === 'coincidencia_positiva' ? '#991B1B' : r.resultado === 'coincidencia_parcial' ? '#92400E' : '#065F46'
+                              background: r.resultado === 'coincidencia_positiva' ? '#FEE2E2' : r.resultado === 'coincidencia_parcial' ? '#FEF3C7' : r.resultado === 'no_consultado' ? '#FEF3C7' : '#D1FAE5',
+                              color: r.resultado === 'coincidencia_positiva' ? '#991B1B' : r.resultado === 'coincidencia_parcial' ? '#92400E' : r.resultado === 'no_consultado' ? '#92400E' : '#065F46'
                             }}>
-                              {r.resultado === 'coincidencia_positiva' ? 'Coincidencia' : r.resultado === 'coincidencia_parcial' ? 'Parcial' : 'Limpio'}
+                              {r.resultado === 'coincidencia_positiva' ? 'Coincidencia' : r.resultado === 'coincidencia_parcial' ? 'Parcial' : r.resultado === 'no_consultado' ? 'No consultado' : 'Limpio'}
                             </span>
                           </div>
                           <p className="text-[10px]" style={{ color: '#888' }}>{r.fuente}</p>
