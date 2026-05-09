@@ -444,12 +444,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Nombre requerido' }, { status: 400 });
     }
 
+    function conTimeout<T>(promesa: Promise<T>, ms: number, fallback: T): Promise<T> {
+      return Promise.race([
+        promesa,
+        new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms)),
+      ]);
+    }
+
+    const fallbackContraloria: ResultadoLista = {
+      lista: 'Responsables fiscales - Contraloría',
+      fuente: 'Contraloría General de la República',
+      tipo: 'nacional',
+      resultado: 'no_consultado',
+      coincidencias: [],
+      url: 'https://cfiscal.contraloria.gov.co/certificados/certificadopersonanatural.aspx',
+      detalles: 'Timeout — consulte manualmente en el enlace',
+    };
+
+    const fallbackProcuraduria: ResultadoLista = {
+      lista: 'Antecedentes disciplinarios - Procuraduría',
+      fuente: 'Procuraduría General de la Nación',
+      tipo: 'nacional',
+      resultado: 'no_consultado',
+      coincidencias: [],
+      url: 'https://www.procuraduria.gov.co/Pages/Consulta-de-Antecedentes.aspx',
+      detalles: 'Timeout — consulte manualmente en el enlace',
+    };
+
     const resultados: ResultadoLista[] = await Promise.all([
       consultarOFAC(nombre, identificacion),
       consultarONU(nombre),
       consultarPEPs(nombre, identificacion),
-      consultarProcuraduria(identificacion, apifyToken),
-      consultarContraloria(identificacion, apifyToken),
+      conTimeout(consultarProcuraduria(identificacion, apifyToken), 45000, fallbackProcuraduria),
+      conTimeout(consultarContraloria(identificacion, apifyToken), 45000, fallbackContraloria),
     ]);
 
     const totalCoincidencias = resultados.reduce((sum, r) => sum + r.coincidencias.length, 0);
