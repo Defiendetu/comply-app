@@ -1,0 +1,24 @@
+{
+    "title": "Procuraduría - Consulta Antecedentes",
+    "description": "Consulta antecedentes disciplinarios en la Procuraduría General de la Nación",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+        "cedula": {
+            "title": "Número de Cédula",
+            "type": "string",
+            "description": "Número de identificación de la persona a consultar",
+            "editor": "textfield"
+        },
+        "tipo_documento": {
+            "title": "Tipo de Documento",
+            "type": "string",
+            "description": "Tipo de documento de identificación",
+            "default": "cc",
+            "enum": ["cc", "ce", "nit", "pep", "ppt"],
+            "enumTitles": ["Cédula de Ciudadanía", "Cédula de Extranjería", "NIT", "PEP", "PPT"],
+            "editor": "select"
+        }
+    },
+    "required": ["cedula"]
+}
