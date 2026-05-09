@@ -1133,7 +1133,7 @@ export default function DashboardPage() {
 
           {/* ======== DOCUMENTOS ======== */}
           {activeView === 'documentos' && (
-            <div className="max-w-3xl mx-auto">
+            <div className="max-w-5xl mx-auto">
               <div className="flex items-center justify-center mb-8 gap-2">
                 {[{ n: 1, l: 'Subir' }, { n: 2, l: 'Información' }, { n: 3, l: 'Descargar' }].map((s, i) => (
                   <div key={s.n} className="flex items-center gap-2">
