@@ -3,8 +3,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { inicializarCalendario, crearEventosParaEntidad, completarEvento, getEventosCalendario, getProximosEventos, actualizarEstados, getEstadoColor, getEstadoLabel, diasRestantes, EventoCalendario } from '@/lib/calendario';
+import { CATEGORIA_LABELS, CATEGORIA_COLORS, Regimen } from '@/lib/obligaciones-minimas';
 
-type ActiveView = 'home' | 'documentos' | 'contrapartes' | 'trabajadores' | 'matriz' | 'agentes' | 'reportes';
+type ActiveView = 'home' | 'documentos' | 'contrapartes' | 'trabajadores' | 'matriz' | 'agentes' | 'reportes' | 'calendario';
 
 interface EmpresaData {
   id: string;
@@ -89,6 +91,12 @@ export default function DashboardPage() {
   const [ferContraparteId, setFerContraparteId] = useState<string>('');
   const [ferAnalyzing, setFerAnalyzing] = useState(false);
   const [ferSuggested, setFerSuggested] = useState(false);
+  const [eventosCalendario, setEventosCalendario] = useState<EventoCalendario[]>([]);
+  const [proximosEventos, setProximosEventos] = useState<EventoCalendario[]>([]);
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
+  const [calFiltroEstado, setCalFiltroEstado] = useState('todos');
+  const [calFiltroCategoria, setCalFiltroCategoria] = useState('todas');
+  const [calVista, setCalVista] = useState<'lista' | 'grilla'>('lista');
   const trabajadorFileRef = useRef<HTMLInputElement>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -145,6 +153,12 @@ export default function DashboardPage() {
         }
         const { data: contras } = await supabase.from('contrapartes').select('*').eq('empresa_id', empresas[0].id).order('created_at', { ascending: false });
         if (contras) { setContrapartes(contras); setTrabajadores(contras.filter((c: any) => c.tipo_relacion === 'empleado')); }
+        // Calendar: initialize + load
+        const regimen = (empresas[0].regimen || 'minimas') as Regimen;
+        await inicializarCalendario(supabase, empresas[0].id, email, regimen);
+        await actualizarEstados(supabase, empresas[0].id);
+        const prox = await getProximosEventos(supabase, empresas[0].id, 5);
+        setProximosEventos(prox);
       }
     } catch (err) { console.error('Error loading data:', err); }
     finally { setLoadingData(false); }
@@ -202,7 +216,7 @@ export default function DashboardPage() {
       }
       const { data: saved, error: dbError } = await supabase.from('contrapartes').insert({ empresa_id: empresaGuardada.id, tipo_persona: finalData.tipo_persona || 'juridica', tipo_relacion: finalData.tipo_relacion || 'cliente', razon_social: finalData.razon_social || '', nit_cc: finalData.nit_cc || finalData.nit || '', representante_legal: finalData.representante_legal || '', ciudad: finalData.ciudad || '', estado: 'activo', datos_extraidos: finalData.datos_extraidos ? finalData : null }).select().single();
       if (dbError) { setError('Error guardando: ' + dbError.message); setLoadingContraparte(false); return; }
-      if (saved) { setContrapartes(prev => [saved, ...prev]); setShowNuevaContraparte(false); setContraparteForm({ tipo_persona: 'juridica', tipo_relacion: 'cliente', razon_social: '', nit_cc: '', representante_legal: '', ciudad: '', certificadoBase64: '', certificadoNombre: '' }); if (user) await logActivity(empresaGuardada.id, user.email, 'registrar_contraparte', `Contraparte: ${saved.razon_social}`); }
+      if (saved) { setContrapartes(prev => [saved, ...prev]); setShowNuevaContraparte(false); setContraparteForm({ tipo_persona: 'juridica', tipo_relacion: 'cliente', razon_social: '', nit_cc: '', representante_legal: '', ciudad: '', certificadoBase64: '', certificadoNombre: '' }); if (user) { await logActivity(empresaGuardada.id, user.email, 'registrar_contraparte', `Contraparte: ${saved.razon_social}`); const regimen = ((empresaGuardada as any).regimen || 'minimas') as Regimen; await crearEventosParaEntidad(supabase, empresaGuardada.id, user.email, regimen, saved.id, 'contraparte', saved.razon_social || ''); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); } }
     } catch (err) { setError(err instanceof Error ? err.message : 'Error al guardar contraparte'); }
     finally { setLoadingContraparte(false); }
   };
@@ -213,7 +227,7 @@ export default function DashboardPage() {
       const cpData = { ...contraparte, ...(contraparte.datos_extraidos || {}), razon_social: contraparte.razon_social || contraparte.datos_extraidos?.razon_social || '', nit_cc: contraparte.nit_cc || contraparte.datos_extraidos?.nit_cc || contraparte.datos_extraidos?.nit || '', representante_legal: contraparte.representante_legal || contraparte.datos_extraidos?.representante_legal || '', ciudad: contraparte.ciudad || contraparte.datos_extraidos?.ciudad || '', direccion: contraparte.datos_extraidos?.direccion || '', objeto_social: contraparte.datos_extraidos?.objeto_social || '', cedula_rep_legal: contraparte.datos_extraidos?.cedula_rep_legal || '' };
       const resp = await fetch('/api/generar-fcc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, DIRECCION: (empresaGuardada as any).direccion || '', CONTRAPARTE: cpData }) });
       const result = await resp.json();
-      if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); await saveDocumento(empresaGuardada.id, 'fcc', result.filename, result.base64); }
+      if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); await saveDocumento(empresaGuardada.id, 'fcc', result.filename, result.base64); if (user) { const regimen = ((empresaGuardada as any).regimen || 'minimas') as Regimen; await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'actualizar_fcc_contraparte', contraparte.id, contraparte.razon_social); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); } }
       else { setError('Error generando FCC: ' + (result.error || 'intenta de nuevo')); }
     } catch (err) { console.error('Error generating FCC:', err); setError('Error de conexión al generar FCC'); }
   };
@@ -224,7 +238,7 @@ export default function DashboardPage() {
       const cpData = { ...contraparte, ...(contraparte.datos_extraidos || {}), razon_social: contraparte.razon_social || contraparte.datos_extraidos?.razon_social || '', nit_cc: contraparte.nit_cc || contraparte.datos_extraidos?.nit_cc || contraparte.datos_extraidos?.nit || '', representante_legal: contraparte.representante_legal || contraparte.datos_extraidos?.representante_legal || '', ciudad: contraparte.ciudad || contraparte.datos_extraidos?.ciudad || '', direccion: contraparte.datos_extraidos?.direccion || '' };
       const resp = await fetch('/api/generar-listas-restrictivas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, CONTRAPARTE: cpData }) });
       const result = await resp.json();
-      if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'); await saveDocumento(empresaGuardada.id, 'listas_restrictivas', result.filename, result.base64); if (user) await logActivity(empresaGuardada.id, user.email, 'generar_listas_restrictivas', `Contraparte: ${cpData.razon_social}`); }
+      if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'); await saveDocumento(empresaGuardada.id, 'listas_restrictivas', result.filename, result.base64); if (user) { await logActivity(empresaGuardada.id, user.email, 'generar_listas_restrictivas', `Contraparte: ${cpData.razon_social}`); const regimen = ((empresaGuardada as any).regimen || 'minimas') as Regimen; await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'consultar_listas_contraparte', contraparte.id, cpData.razon_social); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); } }
       else { setError('Error generando Listas Restrictivas: ' + (result.error || 'intenta de nuevo')); }
     } catch (err) { console.error('Error generating listas restrictivas:', err); setError('Error de conexión al generar Listas Restrictivas'); }
   };
@@ -303,7 +317,7 @@ export default function DashboardPage() {
       if (result.success && result.base64) {
         dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         await saveDocumento(empresaGuardada.id, 'fer', result.filename, result.base64);
-        if (user) await logActivity(empresaGuardada.id, user.email, 'generar_fer', `FER: ${ferForm.naturaleza} — ${ferForm.contraparte_nombre || 'sin contraparte'}`);
+        if (user) { await logActivity(empresaGuardada.id, user.email, 'generar_fer', `FER: ${ferForm.naturaleza} — ${ferForm.contraparte_nombre || 'sin contraparte'}`); const regimen = ((empresaGuardada as any).regimen || 'minimas') as Regimen; await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'revision_fer'); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); }
         setShowFerForm(false);
       } else { setError('Error generando FER: ' + (result.error || 'intenta de nuevo')); }
     } catch (err) { setError('Error de conexión al generar FER'); }
@@ -337,7 +351,7 @@ export default function DashboardPage() {
       const datosExtra = { cargo: trabajadorForm.cargo, area: trabajadorForm.area, fecha_ingreso: trabajadorForm.fecha_ingreso, fecha_ultima_declaracion: null, capacitado: false, fecha_capacitacion: null };
       const { data: saved, error: dbError } = await supabase.from('contrapartes').insert({ empresa_id: empresaGuardada.id, tipo_persona: 'natural', tipo_relacion: 'empleado', razon_social: trabajadorForm.nombre, nit_cc: trabajadorForm.cedula, estado: 'activo', datos_extraidos: datosExtra }).select().single();
       if (dbError) { setError('Error guardando: ' + dbError.message); return; }
-      if (saved) { setTrabajadores(prev => [saved, ...prev]); setContrapartes(prev => [saved, ...prev]); setShowNuevoTrabajador(false); setTrabajadorForm({ nombre: '', cedula: '', cargo: '', area: '', fecha_ingreso: '', contratoBase64: '', contratoNombre: '' }); if (user) await logActivity(empresaGuardada.id, user.email, 'registrar_trabajador', `Trabajador: ${saved.razon_social}`); }
+      if (saved) { setTrabajadores(prev => [saved, ...prev]); setContrapartes(prev => [saved, ...prev]); setShowNuevoTrabajador(false); setTrabajadorForm({ nombre: '', cedula: '', cargo: '', area: '', fecha_ingreso: '', contratoBase64: '', contratoNombre: '' }); if (user) { await logActivity(empresaGuardada.id, user.email, 'registrar_trabajador', `Trabajador: ${saved.razon_social}`); const regimen = ((empresaGuardada as any).regimen || 'minimas') as Regimen; await crearEventosParaEntidad(supabase, empresaGuardada.id, user.email, regimen, saved.id, 'trabajador', saved.razon_social || ''); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); } }
     } catch (err) { setError(err instanceof Error ? err.message : 'Error al guardar'); }
   };
 
@@ -354,6 +368,7 @@ export default function DashboardPage() {
         const updatedDatos = { ...(trabajador.datos_extraidos || {}), fecha_ultima_declaracion: now };
         await supabase.from('contrapartes').update({ datos_extraidos: updatedDatos }).eq('id', trabajador.id);
         setTrabajadores(prev => prev.map(t => t.id === trabajador.id ? { ...t, datos_extraidos: updatedDatos } : t));
+        if (user) { const regimen = ((empresaGuardada as any).regimen || 'minimas') as Regimen; await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'declaracion_trabajador', trabajador.id, trabajador.razon_social); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); }
       } else { setError('Error generando declaración: ' + (result.error || 'intenta de nuevo')); }
     } catch (err) { setError('Error de conexión al generar declaración'); }
     finally { setLoadingDeclaracion(null); }
@@ -364,6 +379,7 @@ export default function DashboardPage() {
     const updatedDatos = { ...(trabajador.datos_extraidos || {}), capacitado: !wasCapacitado, fecha_capacitacion: !wasCapacitado ? new Date().toISOString() : null };
     await supabase.from('contrapartes').update({ datos_extraidos: updatedDatos }).eq('id', trabajador.id);
     setTrabajadores(prev => prev.map(t => t.id === trabajador.id ? { ...t, datos_extraidos: updatedDatos } : t));
+    if (!wasCapacitado && user && empresaGuardada) { const regimen = ((empresaGuardada as any).regimen || 'minimas') as Regimen; await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'capacitacion_trabajador', trabajador.id, trabajador.razon_social); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); }
   };
 
   const getDeclaracionStatus = (trabajador: any) => {
@@ -407,6 +423,13 @@ export default function DashboardPage() {
             if (d.documentos?.matriz?.base64) await saveDocumento(empresaId, 'matriz', d.documentos.matriz.nombre, d.documentos.matriz.base64);
             if (d.documentos?.fcc?.base64) await saveDocumento(empresaId, 'fcc', d.documentos.fcc.nombre, d.documentos.fcc.base64);
             await logActivity(empresaId, user.email, 'generar_documentos', `Manual + Matriz + FCC generados para ${d.empresa}`);
+            const regimen = 'minimas' as Regimen;
+            await inicializarCalendario(supabase, empresaId, user.email, regimen);
+            if (d.documentos?.manual?.base64) await completarEvento(supabase, empresaId, user.email, regimen, 'renovar_manual');
+            if (d.documentos?.matriz?.base64) await completarEvento(supabase, empresaId, user.email, regimen, 'renovar_matriz');
+            if (d.documentos?.fcc?.base64) await completarEvento(supabase, empresaId, user.email, regimen, 'renovar_fcc');
+            const prox = await getProximosEventos(supabase, empresaId, 5);
+            setProximosEventos(prox);
           }
         }
         setStep(3);
@@ -427,6 +450,7 @@ export default function DashboardPage() {
     { id: 'documentos' as ActiveView, label: 'Documentos', svg: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
     { id: 'contrapartes' as ActiveView, label: 'Contrapartes', svg: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
     { id: 'trabajadores' as ActiveView, label: 'Trabajadores', svg: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
+    { id: 'calendario' as ActiveView, label: 'Calendario', svg: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
     { id: 'agentes' as ActiveView, label: 'AI Agents', svg: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z', badge: 'Nuevo' },
     { id: 'matriz' as ActiveView, label: 'Matriz', svg: 'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7', badge: 'Próximo', disabled: true },
     { id: 'reportes' as ActiveView, label: 'Reportes', svg: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', badge: 'Próximo', disabled: true },
@@ -505,6 +529,7 @@ export default function DashboardPage() {
             {activeView === 'agentes' && 'AI Agents'}
             {activeView === 'contrapartes' && 'Contrapartes'}
             {activeView === 'trabajadores' && 'Trabajadores'}
+            {activeView === 'calendario' && 'Calendario de Cumplimiento'}
           </h1>
           <button onClick={() => { setActiveView('documentos'); setStep(empresaGuardada ? 2 : 1); }}
             className="px-4 py-1.5 rounded-lg text-[12px] font-semibold text-white" style={{ background: '#111' }}>
@@ -814,6 +839,41 @@ export default function DashboardPage() {
                 </div>
               )}
 
+              {/* Upcoming deadlines */}
+              {empresaGuardada && proximosEventos.length > 0 && (
+                <div className="rounded-xl mb-6 overflow-hidden" style={cardStyle}>
+                  <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #F0F0F0' }}>
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="#D97706" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                      <span className="text-[13px] font-semibold" style={{ color: '#111' }}>Próximos vencimientos</span>
+                    </div>
+                    <button onClick={() => setActiveView('calendario')} className="text-[11px] font-medium px-3 py-1 rounded-lg hover:bg-gray-50" style={{ color: '#666' }}>
+                      Ver calendario →
+                    </button>
+                  </div>
+                  {proximosEventos.map((ev, i) => {
+                    const dias = diasRestantes(ev.fecha_vencimiento);
+                    const estadoC = getEstadoColor(ev.estado);
+                    const catC = CATEGORIA_COLORS[ev.categoria] || CATEGORIA_COLORS.documental;
+                    return (
+                      <div key={ev.id} className="flex items-center gap-3 px-6 py-3" style={i > 0 ? { borderTop: '1px solid #FAFAFA' } : {}}>
+                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: catC.dot }}></div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[12px] font-medium truncate" style={{ color: '#333' }}>{ev.titulo}</div>
+                          <div className="text-[10px]" style={{ color: '#999' }}>
+                            {new Date(ev.fecha_vencimiento).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            {' · '}{CATEGORIA_LABELS[ev.categoria] || ev.categoria}
+                          </div>
+                        </div>
+                        <span className="text-[10px] px-2 py-0.5 rounded font-medium flex-shrink-0" style={{ background: estadoC.bg, color: estadoC.text }}>
+                          {dias < 0 ? `Vencido hace ${Math.abs(dias)}d` : dias === 0 ? 'Vence hoy' : `${dias}d restantes`}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Quick actions */}
               <div className="flex gap-3 mb-6">
                 {[
@@ -857,6 +917,208 @@ export default function DashboardPage() {
               )}
             </div>
           )}
+
+          {/* ======== CALENDARIO ======== */}
+          {activeView === 'calendario' && empresaGuardada && (() => {
+            const loadCalendarData = async () => {
+              const data = await getEventosCalendario(supabase, empresaGuardada.id, {
+                estado: calFiltroEstado, categoria: calFiltroCategoria,
+                mes: calendarMonth.getMonth(), anio: calendarMonth.getFullYear(),
+              });
+              setEventosCalendario(data);
+            };
+            if (eventosCalendario.length === 0 && calFiltroEstado === 'todos' && calFiltroCategoria === 'todas') {
+              loadCalendarData();
+            }
+
+            const mesNombre = calendarMonth.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+            const primerDia = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+            const ultimoDia = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0);
+            const diasEnMes = ultimoDia.getDate();
+            const primerDiaSemana = primerDia.getDay();
+            const hoy = new Date();
+            const eventosPorDia: Record<number, EventoCalendario[]> = {};
+            eventosCalendario.forEach(ev => {
+              const d = new Date(ev.fecha_vencimiento);
+              if (d.getMonth() === calendarMonth.getMonth() && d.getFullYear() === calendarMonth.getFullYear()) {
+                const day = d.getDate();
+                if (!eventosPorDia[day]) eventosPorDia[day] = [];
+                eventosPorDia[day].push(ev);
+              }
+            });
+
+            const cambiarMes = async (dir: number) => {
+              const nuevo = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + dir, 1);
+              setCalendarMonth(nuevo);
+              const data = await getEventosCalendario(supabase, empresaGuardada.id, {
+                estado: calFiltroEstado, categoria: calFiltroCategoria,
+                mes: nuevo.getMonth(), anio: nuevo.getFullYear(),
+              });
+              setEventosCalendario(data);
+            };
+
+            const aplicarFiltro = async (estado: string, categoria: string) => {
+              setCalFiltroEstado(estado);
+              setCalFiltroCategoria(categoria);
+              const data = await getEventosCalendario(supabase, empresaGuardada.id, {
+                estado, categoria,
+                mes: calendarMonth.getMonth(), anio: calendarMonth.getFullYear(),
+              });
+              setEventosCalendario(data);
+            };
+
+            const completarManual = async (ev: EventoCalendario) => {
+              const regimen = (empresaGuardada.regimen || 'minimas') as Regimen;
+              await completarEvento(supabase, empresaGuardada.id, user!.email, regimen, ev.obligacion_key, ev.entidad_id || undefined, ev.entidad_nombre || undefined);
+              await logActivity(empresaGuardada.id, user!.email, 'completar_evento_calendario', ev.titulo);
+              const data = await getEventosCalendario(supabase, empresaGuardada.id, {
+                estado: calFiltroEstado, categoria: calFiltroCategoria,
+                mes: calendarMonth.getMonth(), anio: calendarMonth.getFullYear(),
+              });
+              setEventosCalendario(data);
+              const prox = await getProximosEventos(supabase, empresaGuardada.id, 5);
+              setProximosEventos(prox);
+            };
+
+            return (
+              <div>
+                {/* Header card */}
+                <div className="rounded-xl p-6 mb-6" style={{ ...cardStyle, background: '#111' }}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <svg className="w-5 h-5" fill="none" stroke="#D97706" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.15em]" style={{ color: '#666' }}>CALENDARIO NORMATIVO</p>
+                  </div>
+                  <h2 className="text-xl font-semibold text-white leading-tight mb-2">Vencimientos y obligaciones regulatorias</h2>
+                  <p className="text-[13px]" style={{ color: '#888' }}>Controla los plazos de tu programa SAGRILAFT. Los eventos se generan automáticamente cuando usas la plataforma.</p>
+                </div>
+
+                {/* Filters + view toggle */}
+                <div className="flex flex-wrap items-center gap-3 mb-4">
+                  <select value={calFiltroEstado} onChange={e => aplicarFiltro(e.target.value, calFiltroCategoria)}
+                    className="px-3 py-1.5 rounded-lg text-[12px] outline-none" style={{ border: '1px solid #E0E0E0', background: '#fff' }}>
+                    <option value="todos">Todos los estados</option>
+                    <option value="vencido">Vencidos</option>
+                    <option value="proximo">Próximos</option>
+                    <option value="pendiente">Pendientes</option>
+                    <option value="completado">Completados</option>
+                  </select>
+                  <select value={calFiltroCategoria} onChange={e => aplicarFiltro(calFiltroEstado, e.target.value)}
+                    className="px-3 py-1.5 rounded-lg text-[12px] outline-none" style={{ border: '1px solid #E0E0E0', background: '#fff' }}>
+                    <option value="todas">Todas las categorías</option>
+                    {Object.entries(CATEGORIA_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                  <div className="flex-1"></div>
+                  <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid #E0E0E0' }}>
+                    <button onClick={() => setCalVista('lista')} className="px-3 py-1.5 text-[11px] font-medium" style={calVista === 'lista' ? { background: '#111', color: '#fff' } : { background: '#fff', color: '#666' }}>Lista</button>
+                    <button onClick={() => setCalVista('grilla')} className="px-3 py-1.5 text-[11px] font-medium" style={calVista === 'grilla' ? { background: '#111', color: '#fff' } : { background: '#fff', color: '#666' }}>Grilla</button>
+                  </div>
+                </div>
+
+                {/* Month navigation */}
+                <div className="flex items-center justify-between mb-4">
+                  <button onClick={() => cambiarMes(-1)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100" style={{ border: '1px solid #E0E0E0' }}>
+                    <svg className="w-4 h-4" fill="none" stroke="#555" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                  <span className="text-[14px] font-semibold capitalize" style={{ color: '#111' }}>{mesNombre}</span>
+                  <button onClick={() => cambiarMes(1)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100" style={{ border: '1px solid #E0E0E0' }}>
+                    <svg className="w-4 h-4" fill="none" stroke="#555" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                </div>
+
+                {calVista === 'grilla' && (
+                  <div className="rounded-xl overflow-hidden mb-6" style={cardStyle}>
+                    <div className="grid grid-cols-7">
+                      {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map(d => (
+                        <div key={d} className="text-center py-2 text-[10px] font-semibold uppercase" style={{ color: '#999', background: '#FAFAFA', borderBottom: '1px solid #F0F0F0' }}>{d}</div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-7">
+                      {Array.from({ length: primerDiaSemana }).map((_, i) => (
+                        <div key={`empty-${i}`} className="min-h-[80px] p-1" style={{ borderBottom: '1px solid #F5F5F5', borderRight: '1px solid #F5F5F5' }}></div>
+                      ))}
+                      {Array.from({ length: diasEnMes }).map((_, i) => {
+                        const dia = i + 1;
+                        const esHoy = dia === hoy.getDate() && calendarMonth.getMonth() === hoy.getMonth() && calendarMonth.getFullYear() === hoy.getFullYear();
+                        const evsDia = eventosPorDia[dia] || [];
+                        return (
+                          <div key={dia} className="min-h-[80px] p-1.5" style={{ borderBottom: '1px solid #F5F5F5', borderRight: '1px solid #F5F5F5', background: esHoy ? '#FFFBEB' : 'transparent' }}>
+                            <div className={`text-[11px] font-medium mb-1 ${esHoy ? 'w-5 h-5 rounded-full flex items-center justify-center text-white' : ''}`}
+                              style={esHoy ? { background: '#D97706' } : { color: '#555' }}>{dia}</div>
+                            {evsDia.slice(0, 3).map(ev => {
+                              const catC = CATEGORIA_COLORS[ev.categoria] || CATEGORIA_COLORS.documental;
+                              return (
+                                <div key={ev.id} className="flex items-center gap-1 mb-0.5 cursor-default" title={ev.titulo}>
+                                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: ev.estado === 'completado' ? '#059669' : ev.estado === 'vencido' ? '#DC2626' : catC.dot }}></div>
+                                  <span className="text-[9px] truncate" style={{ color: '#555' }}>{ev.titulo.length > 18 ? ev.titulo.slice(0, 18) + '…' : ev.titulo}</span>
+                                </div>
+                              );
+                            })}
+                            {evsDia.length > 3 && <span className="text-[9px]" style={{ color: '#999' }}>+{evsDia.length - 3} más</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {calVista === 'lista' && (
+                  <div className="rounded-xl overflow-hidden mb-6" style={cardStyle}>
+                    {eventosCalendario.length === 0 ? (
+                      <div className="p-8 text-center">
+                        <svg className="w-10 h-10 mx-auto mb-3" fill="none" stroke="#CCC" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        <p className="text-[13px] font-medium" style={{ color: '#999' }}>No hay eventos para este mes</p>
+                        <p className="text-[11px] mt-1" style={{ color: '#CCC' }}>Usa la plataforma para generar eventos automáticos o cambia los filtros</p>
+                      </div>
+                    ) : eventosCalendario.map((ev, i) => {
+                      const dias = diasRestantes(ev.fecha_vencimiento);
+                      const estadoC = getEstadoColor(ev.estado);
+                      const catC = CATEGORIA_COLORS[ev.categoria] || CATEGORIA_COLORS.documental;
+                      return (
+                        <div key={ev.id} className="flex items-center gap-4 px-6 py-4" style={i > 0 ? { borderTop: '1px solid #F5F5F5' } : {}}>
+                          <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: catC.bg }}>
+                            <div className="w-3 h-3 rounded-full" style={{ background: catC.dot }}></div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[13px] font-medium" style={{ color: ev.estado === 'completado' ? '#999' : '#333', textDecoration: ev.estado === 'completado' ? 'line-through' : 'none' }}>{ev.titulo}</div>
+                            <div className="text-[11px] mt-0.5" style={{ color: '#999' }}>
+                              {new Date(ev.fecha_vencimiento).toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
+                              {' · '}{CATEGORIA_LABELS[ev.categoria] || ev.categoria}
+                              {ev.recurrencia && <> · <span style={{ color: '#B0B0B0' }}>Recurrente ({ev.recurrencia})</span></>}
+                            </div>
+                            {ev.descripcion && <div className="text-[10px] mt-0.5" style={{ color: '#CCC' }}>{ev.descripcion}</div>}
+                            {ev.fecha_completado && <div className="text-[10px] mt-0.5" style={{ color: '#059669' }}>Completado el {new Date(ev.fecha_completado).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}</div>}
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-[10px] px-2 py-0.5 rounded font-medium" style={{ background: estadoC.bg, color: estadoC.text }}>
+                              {ev.estado === 'completado' ? 'Completado' : dias < 0 ? `Vencido (${Math.abs(dias)}d)` : dias === 0 ? 'Hoy' : `${dias}d`}
+                            </span>
+                            {ev.estado !== 'completado' && ev.estado !== 'cancelado' && (
+                              <button onClick={() => completarManual(ev)} className="px-3 py-1 rounded-lg text-[10px] font-medium text-white hover:opacity-90" style={{ background: '#059669' }}>
+                                Completar
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Legend */}
+                <div className="flex flex-wrap gap-4 px-2">
+                  {Object.entries(CATEGORIA_LABELS).map(([key, label]) => {
+                    const c = CATEGORIA_COLORS[key];
+                    return (
+                      <div key={key} className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ background: c.dot }}></div>
+                        <span className="text-[11px]" style={{ color: '#888' }}>{label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ======== AI AGENTS ======== */}
           {activeView === 'agentes' && (
