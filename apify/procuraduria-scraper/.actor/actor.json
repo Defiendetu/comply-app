@@ -1,0 +1,9 @@
+{
+    "actorSpecification": 1,
+    "name": "procuraduria-scraper",
+    "title": "Procuraduría - Antecedentes Disciplinarios",
+    "description": "Consulta automática de antecedentes disciplinarios en la Procuraduría General de la Nación de Colombia",
+    "version": "1.0.0",
+    "input": "./INPUT_SCHEMA.json",
+    "dockerfile": "./Dockerfile"
+}
