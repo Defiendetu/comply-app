@@ -98,6 +98,20 @@ export default function DashboardPage() {
   const [calFiltroEstado, setCalFiltroEstado] = useState('todos');
   const [calFiltroCategoria, setCalFiltroCategoria] = useState('todas');
   const [calVista, setCalVista] = useState<'lista' | 'grilla'>('lista');
+  // Reporte de eventos de riesgo
+  const [eventosRiesgo, setEventosRiesgo] = useState<any[]>([]);
+  const [showReporteForm, setShowReporteForm] = useState(false);
+  const [reporteStep, setReporteStep] = useState(1);
+  const [reporteForm, setReporteForm] = useState({
+    descripcion: '', impacto_potencial: '', acciones_tomadas: '', comentarios: '',
+    clasificacion: '', tipo_riesgo: '', nivel_riesgo: '',
+    reportante_nombre: '', reportante_identificacion: '',
+    contraparte_id: '', contraparte_nombre: '',
+  });
+  const [reporteAnalisis, setReporteAnalisis] = useState<any>(null);
+  const [loadingReporte, setLoadingReporte] = useState(false);
+  const [loadingClasificacion, setLoadingClasificacion] = useState(false);
+  const [reporteFiltro, setReporteFiltro] = useState('todos');
   const trabajadorFileRef = useRef<HTMLInputElement>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -154,6 +168,9 @@ export default function DashboardPage() {
         }
         const { data: contras } = await supabase.from('contrapartes').select('*').eq('empresa_id', empresas[0].id).order('created_at', { ascending: false });
         if (contras) { setContrapartes(contras); setTrabajadores(contras.filter((c: any) => c.tipo_relacion === 'empleado')); }
+        // Load risk events
+        const { data: evRiesgo } = await supabase.from('eventos_riesgo').select('*').eq('empresa_id', empresas[0].id).order('created_at', { ascending: false });
+        if (evRiesgo) setEventosRiesgo(evRiesgo);
         // Calendar: initialize + load
         const regimen = (empresas[0].regimen || 'minimas') as Regimen;
         await inicializarCalendario(supabase, empresas[0].id, email, regimen);
@@ -453,7 +470,7 @@ export default function DashboardPage() {
     { id: 'trabajadores' as ActiveView, label: 'Trabajadores', svg: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
     { id: 'agentes' as ActiveView, label: 'AI Agents', svg: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z', badge: 'Nuevo' },
     { id: 'matriz' as ActiveView, label: 'Matriz', svg: 'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7', badge: 'Próximo', disabled: true },
-    { id: 'reportes' as ActiveView, label: 'Reportes', svg: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', badge: 'Próximo', disabled: true },
+    { id: 'reportes' as ActiveView, label: 'Reportes', svg: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', badge: 'Nuevo' },
   ];
 
   // Shared component styles
@@ -529,6 +546,7 @@ export default function DashboardPage() {
             {activeView === 'agentes' && 'AI Agents'}
             {activeView === 'contrapartes' && 'Contrapartes'}
             {activeView === 'trabajadores' && 'Trabajadores'}
+            {activeView === 'reportes' && 'Reporte de Eventos de Riesgo'}
           </h1>
           <button onClick={() => { setActiveView('documentos'); setStep(empresaGuardada ? 2 : 1); }}
             className="px-4 py-1.5 rounded-lg text-[12px] font-semibold text-white" style={{ background: '#111' }}>
@@ -1128,6 +1146,410 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* ======== REPORTES DE EVENTOS DE RIESGO ======== */}
+          {activeView === 'reportes' && (
+            <div>
+              {/* Header */}
+              <div className="rounded-xl p-6 mb-6" style={{ ...cardStyle, background: '#111' }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.15em] mb-2" style={{ color: '#666' }}>SAGRILAFT</p>
+                    <h2 className="text-xl font-semibold text-white leading-tight mb-2">Reporte de Eventos de Riesgo</h2>
+                    <p className="text-[13px]" style={{ color: '#888' }}>Clasifica y reporta operaciones inusuales o sospechosas. El sistema analiza el evento y sugiere la clasificación.</p>
+                  </div>
+                  <button onClick={() => { setShowReporteForm(true); setReporteStep(1); setReporteForm({ descripcion: '', impacto_potencial: '', acciones_tomadas: '', comentarios: '', clasificacion: '', tipo_riesgo: '', nivel_riesgo: '', reportante_nombre: '', reportante_identificacion: '', contraparte_id: '', contraparte_nombre: '' }); setReporteAnalisis(null); }}
+                    className="px-4 py-2 rounded-lg text-[12px] font-semibold text-white flex-shrink-0" style={{ background: '#DC2626' }}>
+                    + Reportar Evento
+                  </button>
+                </div>
+              </div>
+
+              {/* Stats */}
+              {eventosRiesgo.length > 0 && (
+                <div className="grid grid-cols-4 gap-4 mb-6">
+                  {[
+                    { label: 'Total eventos', value: eventosRiesgo.length, color: '#111' },
+                    { label: 'Abiertos', value: eventosRiesgo.filter(e => e.estado === 'abierto').length, color: '#D97706' },
+                    { label: 'Op. Sospechosas', value: eventosRiesgo.filter(e => e.clasificacion === 'sospechosa').length, color: '#DC2626' },
+                    { label: 'Reportados UIAF', value: eventosRiesgo.filter(e => e.estado === 'reportado_uiaf').length, color: '#059669' },
+                  ].map((s, i) => (
+                    <div key={i} className="rounded-xl p-4 text-center" style={cardStyle}>
+                      <div className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</div>
+                      <div className="text-[10px] mt-1" style={{ color: '#999' }}>{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Filter */}
+              <div className="flex items-center gap-3 mb-4">
+                {['todos', 'abierto', 'en_revision', 'cerrado', 'reportado_uiaf'].map(f => (
+                  <button key={f} onClick={() => setReporteFiltro(f)}
+                    className="px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors"
+                    style={reporteFiltro === f ? { background: '#111', color: '#fff' } : { background: '#fff', color: '#666', border: '1px solid #E0E0E0' }}>
+                    {f === 'todos' ? 'Todos' : f === 'abierto' ? 'Abiertos' : f === 'en_revision' ? 'En revisión' : f === 'cerrado' ? 'Cerrados' : 'Reportados UIAF'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Events table */}
+              <div className="rounded-xl overflow-hidden mb-6" style={cardStyle}>
+                {eventosRiesgo.filter(e => reporteFiltro === 'todos' || e.estado === reporteFiltro).length === 0 ? (
+                  <div className="py-12 text-center">
+                    <svg className="w-12 h-12 mx-auto mb-3" fill="none" stroke="#DDD" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    <p className="text-[13px] font-medium" style={{ color: '#999' }}>No hay eventos registrados</p>
+                    <p className="text-[11px] mt-1" style={{ color: '#CCC' }}>Reporta tu primer evento de riesgo</p>
+                  </div>
+                ) : eventosRiesgo.filter(e => reporteFiltro === 'todos' || e.estado === reporteFiltro).map((ev, i) => {
+                  const estadoColors: Record<string, { bg: string; text: string }> = {
+                    abierto: { bg: '#FEF3C7', text: '#92400E' },
+                    en_revision: { bg: '#DBEAFE', text: '#1E40AF' },
+                    cerrado: { bg: '#E5E7EB', text: '#374151' },
+                    reportado_uiaf: { bg: '#D1FAE5', text: '#065F46' },
+                  };
+                  const ec = estadoColors[ev.estado] || estadoColors.abierto;
+                  const contraparteEventos = ev.contraparte_id ? eventosRiesgo.filter(e => e.contraparte_id === ev.contraparte_id).length : 0;
+                  return (
+                    <div key={ev.id} className="px-6 py-4" style={i > 0 ? { borderTop: '1px solid #F5F5F5' } : {}}>
+                      <div className="flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                          style={{ background: ev.clasificacion === 'sospechosa' ? '#FEE2E2' : '#FEF3C7' }}>
+                          <svg className="w-4 h-4" fill="none" stroke={ev.clasificacion === 'sospechosa' ? '#DC2626' : '#D97706'} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[12px] font-semibold" style={{ color: ev.clasificacion === 'sospechosa' ? '#DC2626' : '#D97706' }}>
+                              {ev.clasificacion === 'sospechosa' ? 'Op. Sospechosa' : 'Op. Inusual'}
+                            </span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded font-medium" style={{ background: ec.bg, color: ec.text }}>
+                              {ev.estado === 'abierto' ? 'Abierto' : ev.estado === 'en_revision' ? 'En revisión' : ev.estado === 'cerrado' ? 'Cerrado' : 'Reportado UIAF'}
+                            </span>
+                            {ev.nivel_riesgo_sugerido && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded font-medium"
+                                style={{ background: ev.nivel_riesgo_sugerido === 'critico' || ev.nivel_riesgo_sugerido === 'alto' ? '#FEE2E2' : ev.nivel_riesgo_sugerido === 'medio' ? '#FEF3C7' : '#D1FAE5', color: ev.nivel_riesgo_sugerido === 'critico' || ev.nivel_riesgo_sugerido === 'alto' ? '#991B1B' : ev.nivel_riesgo_sugerido === 'medio' ? '#92400E' : '#065F46' }}>
+                                Riesgo {ev.nivel_riesgo_sugerido}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[12px] mb-1" style={{ color: '#333' }}>{ev.descripcion?.slice(0, 150)}{ev.descripcion?.length > 150 ? '...' : ''}</p>
+                          <div className="flex items-center gap-3 text-[10px]" style={{ color: '#999' }}>
+                            <span>{new Date(ev.created_at).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                            {ev.contraparte_nombre && <span>Contraparte: {ev.contraparte_nombre}</span>}
+                            {contraparteEventos > 1 && <span className="font-medium" style={{ color: '#DC2626' }}>{contraparteEventos} eventos acumulados</span>}
+                            {ev.tipo_riesgo && <span>{ev.tipo_riesgo === 'lavado' ? 'LA' : ev.tipo_riesgo === 'terrorismo' ? 'FT' : 'FPADM'}</span>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {ev.estado === 'abierto' && (
+                            <select value={ev.estado} onChange={async (e) => {
+                              const nuevoEstado = e.target.value;
+                              await supabase.from('eventos_riesgo').update({ estado: nuevoEstado, ...(nuevoEstado === 'reportado_uiaf' ? { fecha_reporte_uiaf: new Date().toISOString() } : {}), updated_at: new Date().toISOString() }).eq('id', ev.id);
+                              setEventosRiesgo(prev => prev.map(x => x.id === ev.id ? { ...x, estado: nuevoEstado } : x));
+                              if (user && empresaGuardada) await logActivity(empresaGuardada.id, user.email, 'cambiar_estado_evento', `Evento ${ev.id.slice(0, 8)} → ${nuevoEstado}`);
+                            }} className="px-2 py-1 rounded text-[10px] outline-none" style={{ border: '1px solid #E0E0E0' }}>
+                              <option value="abierto">Abierto</option>
+                              <option value="en_revision">En revisión</option>
+                              <option value="cerrado">Cerrar</option>
+                              <option value="reportado_uiaf">Reportado UIAF</option>
+                            </select>
+                          )}
+                          {ev.documento_id && (
+                            <button onClick={() => {
+                              const doc = historialDocumentos.find(d => d.id === ev.documento_id);
+                              if (doc) dl(doc.base64, doc.nombre_archivo, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+                            }} className="w-7 h-7 rounded flex items-center justify-center hover:bg-gray-100" title="Descargar reporte">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="#666" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Reporte Evento Modal */}
+          {showReporteForm && empresaGuardada && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+              <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl p-6" style={{ background: '#fff' }}>
+                {/* Step indicator */}
+                <div className="flex items-center gap-3 mb-6">
+                  {['Descripción', 'Clasificación IA', 'Reportante'].map((label, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
+                        style={reporteStep > i + 1 ? { background: '#059669', color: '#fff' } : reporteStep === i + 1 ? { background: '#111', color: '#fff' } : { background: '#F0F0F0', color: '#999' }}>
+                        {reporteStep > i + 1 ? '✓' : i + 1}
+                      </div>
+                      <span className="text-[11px] font-medium" style={{ color: reporteStep === i + 1 ? '#111' : '#999' }}>{label}</span>
+                      {i < 2 && <div className="w-8 h-px" style={{ background: '#E0E0E0' }}></div>}
+                    </div>
+                  ))}
+                  <div className="flex-1"></div>
+                  <button onClick={() => setShowReporteForm(false)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100">
+                    <svg className="w-4 h-4" fill="none" stroke="#999" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+
+                {/* Step 1: Description + contraparte */}
+                {reporteStep === 1 && (
+                  <div>
+                    <h3 className="text-[16px] font-semibold mb-1" style={{ color: '#111' }}>Describe el evento de riesgo</h3>
+                    <p className="text-[12px] mb-4" style={{ color: '#999' }}>El sistema analizará la descripción para sugerir la clasificación automáticamente.</p>
+
+                    <label className="text-[11px] font-semibold block mb-1.5" style={{ color: '#555' }}>Contraparte involucrada (opcional)</label>
+                    <select value={reporteForm.contraparte_id} onChange={e => {
+                      const id = e.target.value;
+                      const cp = contrapartes.find(c => c.id === id);
+                      setReporteForm(p => ({ ...p, contraparte_id: id, contraparte_nombre: cp?.razon_social || '' }));
+                    }} className="w-full px-3 py-2 rounded-lg text-[12px] outline-none mb-4" style={{ border: '1px solid #E0E0E0' }}>
+                      <option value="">Sin contraparte</option>
+                      {contrapartes.filter(c => c.tipo_relacion !== 'empleado').map(c => (
+                        <option key={c.id} value={c.id}>{c.razon_social} ({c.tipo_relacion})</option>
+                      ))}
+                    </select>
+
+                    {reporteForm.contraparte_id && (() => {
+                      const prevEvents = eventosRiesgo.filter(e => e.contraparte_id === reporteForm.contraparte_id);
+                      const cpListas = historialDocumentos.filter(d => d.tipo === 'listas_restrictivas');
+                      const cpFer = historialDocumentos.filter(d => d.tipo === 'fer');
+                      if (prevEvents.length > 0 || cpListas.length > 0) {
+                        return (
+                          <div className="rounded-lg p-3 mb-4" style={{ background: prevEvents.length >= 2 ? '#FEF2F2' : '#FFFBEB', border: `1px solid ${prevEvents.length >= 2 ? '#FECACA' : '#FDE68A'}` }}>
+                            <div className="text-[11px] font-semibold mb-1" style={{ color: prevEvents.length >= 2 ? '#991B1B' : '#92400E' }}>
+                              Historial de {reporteForm.contraparte_nombre}
+                            </div>
+                            <div className="text-[10px] space-y-0.5" style={{ color: '#666' }}>
+                              <div>{prevEvents.length} evento(s) de riesgo previo(s) {prevEvents.filter(e => e.clasificacion === 'sospechosa').length > 0 && <span style={{ color: '#DC2626' }}>(incluye sospechosas)</span>}</div>
+                              <div>{cpListas.length} consulta(s) de listas restrictivas</div>
+                              <div>{cpFer.length} evaluación(es) de riesgo (FER)</div>
+                              {prevEvents.length >= 2 && <div className="font-semibold mt-1" style={{ color: '#DC2626' }}>Contraparte con eventos acumulados — considerar escalamiento</div>}
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+
+                    <label className="text-[11px] font-semibold block mb-1.5" style={{ color: '#555' }}>Descripción del evento *</label>
+                    <textarea value={reporteForm.descripcion} onChange={e => setReporteForm(p => ({ ...p, descripcion: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg text-[12px] outline-none mb-4" style={{ border: '1px solid #E0E0E0', minHeight: '120px' }}
+                      placeholder="Describe detalladamente el evento observado: qué ocurrió, quién estuvo involucrado, montos, fechas, circunstancias..." />
+
+                    <label className="text-[11px] font-semibold block mb-1.5" style={{ color: '#555' }}>Impacto potencial</label>
+                    <textarea value={reporteForm.impacto_potencial} onChange={e => setReporteForm(p => ({ ...p, impacto_potencial: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg text-[12px] outline-none mb-4" style={{ border: '1px solid #E0E0E0', minHeight: '60px' }}
+                      placeholder="¿Qué consecuencias podría tener este evento para la organización?" />
+
+                    <label className="text-[11px] font-semibold block mb-1.5" style={{ color: '#555' }}>Acciones tomadas hasta ahora</label>
+                    <textarea value={reporteForm.acciones_tomadas} onChange={e => setReporteForm(p => ({ ...p, acciones_tomadas: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg text-[12px] outline-none mb-4" style={{ border: '1px solid #E0E0E0', minHeight: '60px' }}
+                      placeholder="¿Se han tomado medidas? ¿Se notificó a alguien?" />
+
+                    <div className="flex justify-end gap-3">
+                      <button onClick={() => setShowReporteForm(false)} className="px-4 py-2 rounded-lg text-[12px] font-medium" style={{ background: '#F0F0F0', color: '#999' }}>Cancelar</button>
+                      <button onClick={async () => {
+                        if (!reporteForm.descripcion || reporteForm.descripcion.length < 20) { setError('La descripción debe tener al menos 20 caracteres'); return; }
+                        setLoadingClasificacion(true);
+                        try {
+                          const prevEvents = reporteForm.contraparte_id ? eventosRiesgo.filter(e => e.contraparte_id === reporteForm.contraparte_id).length : 0;
+                          const resp = await fetch('/api/clasificar-evento', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ descripcion: reporteForm.descripcion, contraparte_eventos_previos: prevEvents }) });
+                          const result = await resp.json();
+                          if (result.success) {
+                            setReporteAnalisis(result);
+                            setReporteForm(p => ({ ...p, clasificacion: result.clasificacion, tipo_riesgo: result.tipo_riesgo, nivel_riesgo: result.nivel_riesgo }));
+                            setReporteStep(2);
+                          } else { setError('Error al clasificar: ' + result.error); }
+                        } catch { setError('Error de conexión'); }
+                        finally { setLoadingClasificacion(false); }
+                      }} disabled={loadingClasificacion} className="px-5 py-2 rounded-lg text-[12px] font-semibold text-white" style={{ background: '#111' }}>
+                        {loadingClasificacion ? 'Analizando...' : 'Analizar evento →'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 2: AI Classification */}
+                {reporteStep === 2 && reporteAnalisis && (
+                  <div>
+                    <h3 className="text-[16px] font-semibold mb-4" style={{ color: '#111' }}>Clasificación del evento</h3>
+
+                    {/* Classification result */}
+                    <div className="rounded-xl p-4 mb-4" style={{ background: reporteForm.clasificacion === 'sospechosa' ? '#FEF2F2' : '#FFFBEB', border: `1px solid ${reporteForm.clasificacion === 'sospechosa' ? '#FECACA' : '#FDE68A'}` }}>
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: reporteForm.clasificacion === 'sospechosa' ? '#DC2626' : '#D97706' }}>
+                          <svg className="w-5 h-5" fill="none" stroke="white" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                        </div>
+                        <div>
+                          <div className="text-[14px] font-bold" style={{ color: reporteForm.clasificacion === 'sospechosa' ? '#991B1B' : '#92400E' }}>
+                            {reporteForm.clasificacion === 'sospechosa' ? 'Operación Sospechosa' : 'Operación Inusual'}
+                          </div>
+                          <div className="text-[11px]" style={{ color: '#999' }}>Confianza: {reporteAnalisis.confianza} — Puedes modificar la clasificación abajo</div>
+                        </div>
+                      </div>
+                      {reporteAnalisis.explicaciones?.map((exp: string, i: number) => (
+                        <div key={i} className="text-[11px] flex items-start gap-1.5 mt-1" style={{ color: '#666' }}>
+                          <span>•</span><span>{exp}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {reporteForm.clasificacion === 'sospechosa' && (
+                      <div className="rounded-lg p-3 mb-4 flex items-start gap-2" style={{ background: '#FEE2E2', border: '1px solid #FECACA' }}>
+                        <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="#DC2626" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <div className="text-[11px]" style={{ color: '#991B1B' }}>
+                          <span className="font-bold">Obligación legal:</span> Las operaciones sospechosas deben reportarse a la UIAF dentro de las 24 horas siguientes. No alertar a la contraparte (deber de reserva).
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Recommended actions */}
+                    {reporteAnalisis.acciones_recomendadas?.length > 0 && (
+                      <div className="rounded-lg p-3 mb-4" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+                        <div className="text-[11px] font-semibold mb-1" style={{ color: '#1E40AF' }}>Acciones recomendadas:</div>
+                        {reporteAnalisis.acciones_recomendadas.map((a: string, i: number) => (
+                          <div key={i} className="text-[10px] flex items-start gap-1.5 mt-0.5" style={{ color: '#1E40AF' }}>
+                            <span>{i + 1}.</span><span>{a}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Editable classification */}
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="text-[11px] font-semibold block mb-1.5" style={{ color: '#555' }}>Clasificación</label>
+                        <select value={reporteForm.clasificacion} onChange={e => setReporteForm(p => ({ ...p, clasificacion: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-lg text-[12px] outline-none" style={{ border: '1px solid #E0E0E0' }}>
+                          <option value="inusual">Operación Inusual</option>
+                          <option value="sospechosa">Operación Sospechosa</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-semibold block mb-1.5" style={{ color: '#555' }}>Tipo de riesgo</label>
+                        <select value={reporteForm.tipo_riesgo} onChange={e => setReporteForm(p => ({ ...p, tipo_riesgo: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-lg text-[12px] outline-none" style={{ border: '1px solid #E0E0E0' }}>
+                          <option value="lavado">Lavado de Activos</option>
+                          <option value="terrorismo">Financiamiento del Terrorismo</option>
+                          <option value="proliferacion">Proliferación de Armas</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <label className="text-[11px] font-semibold block mb-1.5" style={{ color: '#555' }}>Comentarios adicionales</label>
+                    <textarea value={reporteForm.comentarios} onChange={e => setReporteForm(p => ({ ...p, comentarios: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg text-[12px] outline-none mb-4" style={{ border: '1px solid #E0E0E0', minHeight: '60px' }}
+                      placeholder="Observaciones o contexto adicional..." />
+
+                    <div className="flex justify-between">
+                      <button onClick={() => setReporteStep(1)} className="px-4 py-2 rounded-lg text-[12px] font-medium" style={{ background: '#F0F0F0', color: '#666' }}>← Volver</button>
+                      <button onClick={() => setReporteStep(3)} className="px-5 py-2 rounded-lg text-[12px] font-semibold text-white" style={{ background: '#111' }}>Continuar →</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 3: Reporter + generate */}
+                {reporteStep === 3 && (
+                  <div>
+                    <h3 className="text-[16px] font-semibold mb-1" style={{ color: '#111' }}>Datos del reportante</h3>
+                    <p className="text-[12px] mb-4" style={{ color: '#999' }}>Quien detectó o tiene conocimiento del evento.</p>
+
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                      <div>
+                        <label className="text-[11px] font-semibold block mb-1.5" style={{ color: '#555' }}>Nombre del reportante</label>
+                        <input type="text" value={reporteForm.reportante_nombre} onChange={e => setReporteForm(p => ({ ...p, reportante_nombre: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-lg text-[12px] outline-none" style={{ border: '1px solid #E0E0E0' }} placeholder="Nombre completo" />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-semibold block mb-1.5" style={{ color: '#555' }}>Identificación</label>
+                        <input type="text" value={reporteForm.reportante_identificacion} onChange={e => setReporteForm(p => ({ ...p, reportante_identificacion: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-lg text-[12px] outline-none" style={{ border: '1px solid #E0E0E0' }} placeholder="Cédula o documento" />
+                      </div>
+                    </div>
+
+                    {/* Summary */}
+                    <div className="rounded-lg p-4 mb-6" style={{ background: '#FAFAFA', border: '1px solid #EBEBEB' }}>
+                      <div className="text-[11px] font-semibold mb-2" style={{ color: '#555' }}>Resumen del reporte</div>
+                      <div className="grid grid-cols-2 gap-2 text-[11px]">
+                        <div><span style={{ color: '#999' }}>Clasificación:</span> <span className="font-medium" style={{ color: reporteForm.clasificacion === 'sospechosa' ? '#DC2626' : '#D97706' }}>{reporteForm.clasificacion === 'sospechosa' ? 'Op. Sospechosa' : 'Op. Inusual'}</span></div>
+                        <div><span style={{ color: '#999' }}>Tipo:</span> <span className="font-medium" style={{ color: '#333' }}>{reporteForm.tipo_riesgo === 'lavado' ? 'LA' : reporteForm.tipo_riesgo === 'terrorismo' ? 'FT' : 'FPADM'}</span></div>
+                        <div><span style={{ color: '#999' }}>Nivel de riesgo:</span> <span className="font-medium">{reporteForm.nivel_riesgo}</span></div>
+                        {reporteForm.contraparte_nombre && <div><span style={{ color: '#999' }}>Contraparte:</span> <span className="font-medium">{reporteForm.contraparte_nombre}</span></div>}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between">
+                      <button onClick={() => setReporteStep(2)} className="px-4 py-2 rounded-lg text-[12px] font-medium" style={{ background: '#F0F0F0', color: '#666' }}>← Volver</button>
+                      <button onClick={async () => {
+                        setLoadingReporte(true); setError('');
+                        try {
+                          // Get contraparte history
+                          let historial = null;
+                          if (reporteForm.contraparte_id) {
+                            const prevEv = eventosRiesgo.filter(e => e.contraparte_id === reporteForm.contraparte_id);
+                            const cpListas = historialDocumentos.filter(d => d.tipo === 'listas_restrictivas');
+                            const cpFer = historialDocumentos.filter(d => d.tipo === 'fer');
+                            historial = { nombre: reporteForm.contraparte_nombre, eventos_previos: prevEv.length, ultima_consulta_listas: cpListas.length > 0 ? new Date(cpListas[0].created_at).toLocaleDateString('es-CO') : null, fer_count: cpFer.length };
+                          }
+                          // Generate document
+                          const resp = await fetch('/api/generar-reporte-evento', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+                            RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad,
+                            EVENTO: { clasificacion: reporteForm.clasificacion, tipo_riesgo: reporteForm.tipo_riesgo, descripcion: reporteForm.descripcion, impacto_potencial: reporteForm.impacto_potencial, acciones_tomadas: reporteForm.acciones_tomadas, comentarios: reporteForm.comentarios },
+                            REPORTANTE: { nombre: reporteForm.reportante_nombre, identificacion: reporteForm.reportante_identificacion },
+                            ANALISIS: reporteAnalisis, HISTORIAL_CONTRAPARTE: historial,
+                          }) });
+                          const result = await resp.json();
+                          if (result.success && result.base64) {
+                            dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+                            const savedDoc = await saveDocumento(empresaGuardada.id, 'reporte_eventos', result.filename, result.base64);
+                            // Save event to DB
+                            const { data: savedEvento } = await supabase.from('eventos_riesgo').insert({
+                              empresa_id: empresaGuardada.id, user_email: user!.email,
+                              clasificacion: reporteForm.clasificacion, tipo_riesgo: reporteForm.tipo_riesgo,
+                              descripcion: reporteForm.descripcion, impacto_potencial: reporteForm.impacto_potencial,
+                              acciones_tomadas: reporteForm.acciones_tomadas, comentarios: reporteForm.comentarios,
+                              reportante_nombre: reporteForm.reportante_nombre, reportante_identificacion: reporteForm.reportante_identificacion,
+                              contraparte_id: reporteForm.contraparte_id || null, contraparte_nombre: reporteForm.contraparte_nombre || null,
+                              estado: 'abierto', nivel_riesgo_sugerido: reporteForm.nivel_riesgo,
+                              confianza_clasificacion: reporteAnalisis?.confianza || null,
+                              analisis_ia: reporteAnalisis, documento_id: savedDoc?.id || null,
+                              mes_reporte: new Date().toLocaleDateString('es-CO', { month: 'long' }),
+                              anio_reporte: new Date().getFullYear(),
+                            }).select().single();
+                            if (savedEvento) setEventosRiesgo(prev => [savedEvento, ...prev]);
+                            // Calendar: UIAF alert for sospechosa
+                            if (reporteForm.clasificacion === 'sospechosa') {
+                              const regimen = (empresaGuardada.regimen || 'minimas') as Regimen;
+                              const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+                              await supabase.from('eventos_calendario').insert({
+                                empresa_id: empresaGuardada.id, user_email: user!.email, regimen,
+                                obligacion_key: 'reporte_uiaf_urgente', titulo: 'URGENTE: Reportar operación sospechosa a UIAF',
+                                descripcion: `Operación sospechosa detectada: ${reporteForm.descripcion.slice(0, 100)}...`,
+                                categoria: 'reporte', fecha_vencimiento: tomorrow.toISOString(),
+                                recurrencia: null, estado: 'proximo', prioridad: 'alta',
+                                entidad_tipo: 'evento_riesgo', entidad_id: savedEvento?.id || null,
+                              });
+                              const prox = await getProximosEventos(supabase, empresaGuardada.id, 5);
+                              setProximosEventos(prox);
+                            }
+                            await logActivity(empresaGuardada.id, user!.email, 'generar_reporte_evento', `${reporteForm.clasificacion}: ${reporteForm.descripcion.slice(0, 80)}`);
+                            setShowReporteForm(false);
+                          } else { setError('Error generando reporte: ' + (result.error || '')); }
+                        } catch (err) { setError('Error de conexión al generar reporte'); }
+                        finally { setLoadingReporte(false); }
+                      }} disabled={loadingReporte} className="px-5 py-2 rounded-lg text-[12px] font-semibold text-white" style={{ background: '#DC2626' }}>
+                        {loadingReporte ? 'Generando...' : 'Generar reporte'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
