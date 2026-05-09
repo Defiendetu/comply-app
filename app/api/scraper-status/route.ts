@@ -65,7 +65,10 @@ export async function POST(request: NextRequest) {
                 );
               }
             } else {
-              resultado.detalles = item.texto_resultado || 'Sin antecedentes disciplinarios registrados';
+              const txt = item.texto_resultado || '';
+              resultado.detalles = txt.includes('Resultado no determinado') || txt.includes('CDATA') || txt.includes('theForm')
+                ? 'Sin antecedentes disciplinarios registrados'
+                : (txt || 'Sin antecedentes disciplinarios registrados');
             }
           } else {
             if (item.es_responsable_fiscal) {

@@ -311,7 +311,25 @@ export default function DashboardPage() {
   const handleDescargarListasDoc = async () => {
     if (!empresaGuardada || !screeningContraparte) return;
     try {
-      const resp = await fetch('/api/generar-listas-restrictivas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, CONTRAPARTE: screeningContraparte, SCREENING: screeningResultados }) });
+      const currentResults = { ...screeningResultados };
+      const resultados = currentResults.resultados || [];
+      const consultadas = resultados.filter((r: any) => r.resultado !== 'no_consultado' && r.resultado !== 'pendiente').length;
+      const noConsultadas = resultados.filter((r: any) => r.resultado === 'no_consultado').length;
+      const hayPositiva = resultados.some((r: any) => r.resultado === 'coincidencia_positiva');
+      const hayParcial = resultados.some((r: any) => r.resultado === 'coincidencia_parcial');
+      currentResults.listas_consultadas = consultadas;
+      currentResults.listas_no_consultadas = noConsultadas;
+      if (hayPositiva) {
+        currentResults.conclusion = 'coincidencia_positiva';
+        currentResults.recomendacion = 'Se encontraron coincidencias positivas. Se recomienda escalar inmediatamente al Oficial de Cumplimiento y considerar un Reporte de Operación Sospechosa (ROS) a la UIAF.';
+      } else if (hayParcial) {
+        currentResults.conclusion = 'coincidencia_parcial';
+        currentResults.recomendacion = 'Se encontraron coincidencias parciales (posible homonimia). Se recomienda realizar verificación adicional antes de continuar la relación comercial.';
+      } else {
+        currentResults.conclusion = 'sin_coincidencia';
+        currentResults.recomendacion = `No se encontraron coincidencias en ${consultadas} de ${resultados.length} listas consultadas.${noConsultadas > 0 ? ` ${noConsultadas} lista(s) no pudieron ser consultadas — verifique manualmente.` : ''} Se recomienda mantener el monitoreo periódico.`;
+      }
+      const resp = await fetch('/api/generar-listas-restrictivas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, CONTRAPARTE: screeningContraparte, SCREENING: currentResults }) });
       const result = await resp.json();
       if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'); await saveDocumento(empresaGuardada.id, 'listas_restrictivas', result.filename, result.base64); if (user) { await logActivity(empresaGuardada.id, user.email, 'generar_listas_restrictivas', `Contraparte: ${screeningContraparte.razon_social}`); const regimen = (empresaGuardada.regimen || 'minimas') as Regimen; await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'consultar_listas_contraparte', screeningContraparte.id, screeningContraparte.razon_social); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); } }
       else { setError('Error generando documento: ' + (result.error || 'intenta de nuevo')); }
@@ -2474,16 +2492,32 @@ export default function DashboardPage() {
                       const todos = screeningResultados.resultados || [];
                       const total = todos.length;
                       const listos = todos.filter((r: any) => r.resultado !== 'pendiente').length;
-                      const pct = total > 0 ? Math.round((listos / total) * 100) : 0;
                       const hayPendientes = listos < total;
                       return hayPendientes ? (
                         <div className="mb-3">
+                          <style>{`
+                            @keyframes screening-progress {
+                              0% { width: 5%; }
+                              30% { width: 35%; }
+                              60% { width: 60%; }
+                              80% { width: 75%; }
+                              100% { width: 90%; }
+                            }
+                            @keyframes screening-pulse {
+                              0%, 100% { opacity: 1; }
+                              50% { opacity: 0.7; }
+                            }
+                          `}</style>
                           <div className="flex items-center justify-between mb-1.5">
                             <span className="text-[11px] font-medium" style={{ color: '#555' }}>{listos} de {total} listas verificadas</span>
-                            <span className="text-[11px]" style={{ color: '#888' }}>{pct}%</span>
+                            <span className="text-[11px]" style={{ color: '#888', animation: 'screening-pulse 1.5s ease-in-out infinite' }}>Verificando...</span>
                           </div>
                           <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: '#E5E7EB' }}>
-                            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #3B82F6, #2563EB)' }}></div>
+                            <div className="h-full rounded-full" style={{
+                              background: 'linear-gradient(90deg, #3B82F6, #2563EB)',
+                              animation: 'screening-progress 120s ease-out forwards',
+                              minWidth: `${Math.round((listos / total) * 100)}%`,
+                            }}></div>
                           </div>
                           <p className="text-[10px] mt-1" style={{ color: '#999' }}>Las listas con scrapers (Procuraduría, Contraloría) pueden tardar hasta 2 minutos...</p>
                         </div>
