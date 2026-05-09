@@ -103,6 +103,20 @@ export async function POST(request: NextRequest) {
     const siglas = d.SIGLAS || empresaCorto.split(' ').map((p: string) => p[0]).join('').substring(0, 4).toUpperCase();
     const version = d.VERSION || 'V.1';
     const codigoFCC = `FCC_${siglas}_${version}`;
+
+    // Contraparte data for pre-filling
+    const cp = d.CONTRAPARTE || null;
+    const cpRazonSocial = cp?.razon_social || '';
+    const cpNit = cp?.nit_cc || cp?.nit || '';
+    const cpRepLegal = cp?.representante_legal || '';
+    const cpCedulaRep = cp?.cedula_rep_legal || '';
+    const cpCiudad = cp?.ciudad || '';
+    const cpDireccion = cp?.direccion || '';
+    const cpObjetoSocial = cp?.objeto_social || '';
+    const cpFechaConst = cp?.fecha_constitucion || '';
+    const cpCIIU = cp?.codigo_ciiu || '';
+    const cpTipoRelacion = cp?.tipo_relacion || '';
+    const cpSocios: any[] = cp?.socios || [];
     const COLS = 8;
 
     const wb = new ExcelJS.Workbook();
@@ -156,8 +170,21 @@ export async function POST(request: NextRequest) {
 
     // Tipo de relacionamiento
     r = sectionHeader(ws, r, COLS, 'TIPO DE RELACIONAMIENTO');
-    r = checkboxRow(ws, r, ['VINCULACIÓN', 'ACTUALIZACIÓN', 'REACTIVACIÓN'], COLS);
-    r = checkboxRow(ws, r, ['CLIENTE', 'PROVEEDOR', 'EMPLEADO', 'OTRO'], COLS);
+    if (cp) {
+      const tipoMap: Record<string, string> = { cliente: 'CLIENTE', proveedor: 'PROVEEDOR', empleado: 'EMPLEADO' };
+      const marcado = tipoMap[cpTipoRelacion?.toLowerCase()] || '';
+      r = checkboxRow(ws, r, ['☑ VINCULACIÓN', 'ACTUALIZACIÓN', 'REACTIVACIÓN'].map(o => o.startsWith('☑') ? o : `☐ ${o}`).map(o => o.replace('☐ ☑ ', '☑ ')), COLS);
+      const tipoOpts = ['CLIENTE', 'PROVEEDOR', 'EMPLEADO', 'OTRO'].map(o => marcado === o ? `☑ ${o}` : `☐ ${o}`);
+      mergeAndSet(ws, r, 1, r, 2, tipoOpts[0], marcado === 'CLIENTE' ? prefilledFont(9) : normalFont(9));
+      mergeAndSet(ws, r, 3, r, 4, tipoOpts[1], marcado === 'PROVEEDOR' ? prefilledFont(9) : normalFont(9));
+      mergeAndSet(ws, r, 5, r, 6, tipoOpts[2], marcado === 'EMPLEADO' ? prefilledFont(9) : normalFont(9));
+      mergeAndSet(ws, r, 7, r, COLS, tipoOpts[3], normalFont(9));
+      ws.getRow(r).height = 26;
+      r++;
+    } else {
+      r = checkboxRow(ws, r, ['VINCULACIÓN', 'ACTUALIZACIÓN', 'REACTIVACIÓN'], COLS);
+      r = checkboxRow(ws, r, ['CLIENTE', 'PROVEEDOR', 'EMPLEADO', 'OTRO'], COLS);
+    }
     r++;
 
     // ============================================
@@ -257,19 +284,19 @@ export async function POST(request: NextRequest) {
     // ============================================
     r = sectionHeader(ws, r, COLS, 'II. INFORMACIÓN GENERAL — PERSONA JURÍDICA');
     r = checkboxRow(ws, r, ['CLIENTE', 'PROVEEDOR', 'CONTRATISTA', 'OTRO'], COLS);
-    r = fieldRow(ws, r, 'Razón Social:', 1, 2, 3, COLS);
-    r = fieldRow(ws, r, 'NIT:', 1, 2, 3, 4);
+    r = fieldRow(ws, r, 'Razón Social:', 1, 2, 3, COLS, cpRazonSocial);
+    r = fieldRow(ws, r, 'NIT:', 1, 2, 3, 4, cpNit);
     setCell(ws, r - 1, 5, 'Dígito Verificación:', labelFont(9), { fill: lightFill });
     mergeAndSet(ws, r - 1, 6, r - 1, COLS, '', normalFont(9), { fill: whiteFill });
     ws.getRow(r - 1).height = 28;
 
-    r = fieldRow(ws, r, 'Fecha Constitución:', 1, 2, 3, 4);
+    r = fieldRow(ws, r, 'Fecha Constitución:', 1, 2, 3, 4, cpFechaConst);
     setCell(ws, r - 1, 5, 'País:', labelFont(9), { fill: lightFill });
-    mergeAndSet(ws, r - 1, 6, r - 1, COLS, '', normalFont(9), { fill: whiteFill });
+    mergeAndSet(ws, r - 1, 6, r - 1, COLS, cpCiudad ? 'Colombia' : '', cpCiudad ? prefilledFont(9) : normalFont(9), { fill: whiteFill });
     ws.getRow(r - 1).height = 28;
 
-    r = fieldRow(ws, r, 'Dirección:', 1, 2, 3, COLS);
-    r = fieldRow(ws, r, 'Ciudad:', 1, 2, 3, 4);
+    r = fieldRow(ws, r, 'Dirección:', 1, 2, 3, COLS, cpDireccion);
+    r = fieldRow(ws, r, 'Ciudad:', 1, 2, 3, 4, cpCiudad);
     setCell(ws, r - 1, 5, 'Departamento:', labelFont(9), { fill: lightFill });
     mergeAndSet(ws, r - 1, 6, r - 1, COLS, '', normalFont(9), { fill: whiteFill });
     ws.getRow(r - 1).height = 28;
@@ -279,9 +306,9 @@ export async function POST(request: NextRequest) {
     mergeAndSet(ws, r - 1, 6, r - 1, COLS, '', normalFont(9), { fill: whiteFill });
     ws.getRow(r - 1).height = 28;
 
-    r = fieldRow(ws, r, 'Representante Legal:', 1, 3, 4, COLS);
-    r = fieldRow(ws, r, 'C.C. Rep. Legal:', 1, 3, 4, COLS);
-    r = fieldRow(ws, r, 'Objeto Social (resumen):', 1, 3, 4, COLS);
+    r = fieldRow(ws, r, 'Representante Legal:', 1, 3, 4, COLS, cpRepLegal);
+    r = fieldRow(ws, r, 'C.C. Rep. Legal:', 1, 3, 4, COLS, cpCedulaRep);
+    r = fieldRow(ws, r, 'Objeto Social (resumen):', 1, 3, 4, COLS, cpObjetoSocial);
     r++;
 
     // Miembros Junta Directiva
@@ -294,10 +321,15 @@ export async function POST(request: NextRequest) {
     setCell(ws, r, 8, 'PEP?', labelFont(8), { fill: lightFill, alignment: { horizontal: 'center' } });
     ws.getRow(r).height = 24;
     r++;
-    for (let i = 0; i < 5; i++) {
-      mergeAndSet(ws, r, 1, r, 3, '', normalFont(9), { fill: whiteFill });
-      mergeAndSet(ws, r, 4, r, 5, '', normalFont(9), { fill: whiteFill });
-      mergeAndSet(ws, r, 6, r, 7, '', normalFont(9), { fill: whiteFill });
+    const totalSocioRows = Math.max(5, cpSocios.length);
+    for (let i = 0; i < totalSocioRows; i++) {
+      const socio = cpSocios[i];
+      const sNombre = socio?.nombre || '';
+      const sId = socio?.identificacion || '';
+      const sPct = socio?.porcentaje || '';
+      mergeAndSet(ws, r, 1, r, 3, sNombre, sNombre ? prefilledFont(9) : normalFont(9), { fill: whiteFill });
+      mergeAndSet(ws, r, 4, r, 5, sId, sId ? prefilledFont(9) : normalFont(9), { fill: whiteFill });
+      mergeAndSet(ws, r, 6, r, 7, sPct, sPct ? prefilledFont(9) : normalFont(9), { fill: whiteFill });
       setCell(ws, r, 8, '☐ Sí  ☐ No', smallFont(7), { fill: whiteFill, alignment: { horizontal: 'center', vertical: 'middle' } });
       ws.getRow(r).height = 24;
       r++;
@@ -306,7 +338,7 @@ export async function POST(request: NextRequest) {
 
     // Actividad económica
     r = sectionHeader(ws, r, COLS, 'ACTIVIDAD ECONÓMICA');
-    r = fieldRow(ws, r, 'Código CIIU:', 1, 2, 3, 4);
+    r = fieldRow(ws, r, 'Código CIIU:', 1, 2, 3, 4, cpCIIU);
     setCell(ws, r - 1, 5, 'Descripción:', labelFont(9), { fill: lightFill });
     mergeAndSet(ws, r - 1, 6, r - 1, COLS, '', normalFont(9), { fill: whiteFill });
     ws.getRow(r - 1).height = 28;
