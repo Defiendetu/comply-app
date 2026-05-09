@@ -73,6 +73,16 @@ export default function DashboardPage() {
   const [showListasForm, setShowListasForm] = useState(false);
   const [listasForm, setListasForm] = useState({ nombre: '', nit: '', tipo_persona: 'juridica', tipo_relacion: 'cliente' });
   const [loadingListas, setLoadingListas] = useState(false);
+  const [showFerForm, setShowFerForm] = useState(false);
+  const [ferStep, setFerStep] = useState(1);
+  const [ferForm, setFerForm] = useState({
+    reportante_nombre: '', reportante_cargo: '', reportante_area: '', reportante_superior: '',
+    descripcion: '', naturaleza: 'operacion_inusual', impacto: 'moderado', probabilidad: 'moderada',
+    contraparte_nombre: '', continuar: true, justificacion: '',
+    plan_objetivo: 'reducir', plan_descripcion: '', plan_monitoreo: 'trimestral',
+  });
+  const [loadingFer, setLoadingFer] = useState(false);
+  const [ferPrefilledFrom, setFerPrefilledFrom] = useState<string | null>(null);
   const trabajadorFileRef = useRef<HTMLInputElement>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -210,6 +220,58 @@ export default function DashboardPage() {
     } catch (err) { console.error('Error generating listas restrictivas:', err); setError('Error de conexión al generar Listas Restrictivas'); }
   };
 
+  const handleOpenFer = (opts?: { trabajador?: any; contraparte?: any }) => {
+    const resetForm = {
+      reportante_nombre: '', reportante_cargo: '', reportante_area: '', reportante_superior: empresaGuardada?.representante_legal || '',
+      descripcion: '', naturaleza: 'operacion_inusual', impacto: 'moderado', probabilidad: 'moderada',
+      contraparte_nombre: '', continuar: true, justificacion: '',
+      plan_objetivo: 'reducir', plan_descripcion: '', plan_monitoreo: 'trimestral',
+    };
+    if (opts?.trabajador) {
+      resetForm.reportante_nombre = opts.trabajador.razon_social || '';
+      resetForm.reportante_cargo = opts.trabajador.datos_extraidos?.cargo || '';
+      resetForm.reportante_area = opts.trabajador.datos_extraidos?.area || '';
+      setFerPrefilledFrom(opts.trabajador.razon_social || null);
+    } else if (opts?.contraparte) {
+      resetForm.contraparte_nombre = opts.contraparte.razon_social || '';
+      setFerPrefilledFrom(opts.contraparte.razon_social || null);
+    } else {
+      setFerPrefilledFrom(null);
+    }
+    setFerForm(resetForm);
+    setFerStep(1);
+    setShowFerForm(true);
+  };
+
+  const handleGenerarFer = async () => {
+    if (!empresaGuardada) return;
+    setLoadingFer(true); setError('');
+    try {
+      const matrizRiesgo: Record<string, Record<string, string>> = {
+        alta: { alto: 'alto', moderado: 'alto', bajo: 'moderado' },
+        moderada: { alto: 'alto', moderado: 'moderado', bajo: 'bajo' },
+        baja: { alto: 'moderado', moderado: 'bajo', bajo: 'bajo' },
+      };
+      const riesgoInherente = matrizRiesgo[ferForm.probabilidad]?.[ferForm.impacto] || 'moderado';
+      const resp = await fetch('/api/generar-fer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad,
+        REPORTANTE: { nombre: ferForm.reportante_nombre, cargo: ferForm.reportante_cargo, area: ferForm.reportante_area, superior: ferForm.reportante_superior || empresaGuardada.representante_legal },
+        EVENTO: { descripcion: ferForm.descripcion, naturaleza: ferForm.naturaleza, impacto: ferForm.impacto, probabilidad: ferForm.probabilidad },
+        DECISION: { continuar: ferForm.continuar, justificacion: ferForm.justificacion },
+        PLAN: { objetivo: ferForm.plan_objetivo, descripcion: ferForm.plan_descripcion, monitoreo: ferForm.plan_monitoreo, prioridad: riesgoInherente === 'alto' ? 'alta' : riesgoInherente === 'moderado' ? 'media' : 'baja' },
+        CONTRAPARTE_NOMBRE: ferForm.contraparte_nombre,
+      }) });
+      const result = await resp.json();
+      if (result.success && result.base64) {
+        dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        await saveDocumento(empresaGuardada.id, 'fer', result.filename, result.base64);
+        if (user) await logActivity(empresaGuardada.id, user.email, 'generar_fer', `FER: ${ferForm.naturaleza} — ${ferForm.contraparte_nombre || 'sin contraparte'}`);
+        setShowFerForm(false);
+      } else { setError('Error generando FER: ' + (result.error || 'intenta de nuevo')); }
+    } catch (err) { setError('Error de conexión al generar FER'); }
+    finally { setLoadingFer(false); }
+  };
+
   const handleContratoTrabajador = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     if (file.type !== 'application/pdf') { setError('Solo archivos PDF'); return; }
@@ -315,10 +377,10 @@ export default function DashboardPage() {
   };
 
   const dl = (b64: string, fn: string, mime: string) => { const bc = atob(b64); const bn = new Array(bc.length); for (let i=0;i<bc.length;i++) bn[i]=bc.charCodeAt(i); const blob = new Blob([new Uint8Array(bn)],{type:mime}); const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=fn; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); };
-  const getMimeForType = (tipo: string) => ['manual', 'listas_restrictivas'].includes(tipo) ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  const getDocLabel = (tipo: string) => ({ manual: 'Manual de Medidas Mínimas', matriz: 'Matriz de Riesgo', fcc: 'Formulario FCC', fer: 'Evaluación de Riesgos', reporte_eventos: 'Reporte de Eventos', declaracion_trabajadores: 'Declaración de Trabajadores', listas_restrictivas: 'Listas Restrictivas' }[tipo] || tipo);
+  const getMimeForType = (tipo: string) => ['manual', 'listas_restrictivas', 'fer'].includes(tipo) ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  const getDocLabel = (tipo: string) => ({ manual: 'Manual de Medidas Mínimas', matriz: 'Matriz de Riesgo', fcc: 'Formulario FCC', fer: 'Evaluación de Riesgos (FER)', reporte_eventos: 'Reporte de Eventos', declaracion_trabajadores: 'Declaración de Trabajadores', listas_restrictivas: 'Listas Restrictivas' }[tipo] || tipo);
   const getDocColor = (tipo: string) => ({ manual: '#2563EB', matriz: '#059669', fcc: '#7C3AED', fer: '#D97706', reporte_eventos: '#DC2626', listas_restrictivas: '#1E40AF' }[tipo] || '#2563EB');
-  const getDocExt = (tipo: string) => ['manual', 'listas_restrictivas'].includes(tipo) ? 'DOCX' : 'XLSX';
+  const getDocExt = (tipo: string) => ['manual', 'listas_restrictivas', 'fer'].includes(tipo) ? 'DOCX' : 'XLSX';
 
   if (!user) return null;
 
@@ -765,6 +827,7 @@ export default function DashboardPage() {
                         </span>
                         <button onClick={() => handleGenerarFCCContraparte(c)} className="px-3 py-1 rounded-lg text-[11px] font-medium text-white" style={{ background: '#7C3AED' }}>FCC</button>
                         <button onClick={() => handleGenerarListasRestrictivas(c)} className="px-3 py-1 rounded-lg text-[11px] font-medium text-white" style={{ background: '#2563EB' }}>Listas</button>
+                        <button onClick={() => handleOpenFer({ contraparte: c })} className="px-3 py-1 rounded-lg text-[11px] font-medium text-white" style={{ background: '#D97706' }}>FER</button>
                         <button onClick={async () => { if (confirm('Eliminar contraparte?')) { await supabase.from('contrapartes').delete().eq('id', c.id); setContrapartes(prev => prev.filter(x => x.id !== c.id)); }}} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-50" style={{ color: '#DC2626' }}>
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
@@ -885,6 +948,7 @@ export default function DashboardPage() {
                           <button onClick={() => handleGenerarDeclaracion(t)} disabled={loadingDeclaracion === t.id} className="px-3 py-1 rounded-lg text-[11px] font-medium text-white disabled:opacity-50" style={btnPrimary}>
                             {loadingDeclaracion === t.id ? '...' : 'Declaracion'}
                           </button>
+                          <button onClick={() => handleOpenFer({ trabajador: t })} className="px-3 py-1 rounded-lg text-[11px] font-medium text-white" style={{ background: '#D97706' }}>FER</button>
                           <button onClick={async () => { if (confirm('Eliminar trabajador?')) { await supabase.from('contrapartes').delete().eq('id', t.id); setTrabajadores(prev => prev.filter(x => x.id !== t.id)); setContrapartes(prev => prev.filter(x => x.id !== t.id)); }}} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-50" style={{ color: '#DC2626' }}>
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                           </button>
@@ -1003,6 +1067,20 @@ export default function DashboardPage() {
                             </div>
                           </div>
                         )}
+                      </div>
+
+                      {/* FER - standalone */}
+                      <div className="mb-5 p-4 rounded-xl" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[9px] font-bold" style={{ background: '#D97706' }}>F</div>
+                          <div>
+                            <div className="text-[12px] font-semibold" style={{ color: '#92400E' }}>Evaluación de Riesgos (FER)</div>
+                            <div className="text-[10px]" style={{ color: '#B45309' }}>Evaluación guiada con cálculo automático de riesgo y mitigaciones por sector</div>
+                          </div>
+                        </div>
+                        <button onClick={() => handleOpenFer()} className="w-full mt-1 py-2 rounded-lg text-[12px] font-medium" style={{ background: '#D97706', color: '#fff' }}>
+                          Iniciar evaluación de riesgos
+                        </button>
                       </div>
 
                       <div className="flex gap-3">
@@ -1131,6 +1209,246 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+
+        {/* ======== FER MODAL ======== */}
+        {showFerForm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
+            <div className="w-full max-w-lg mx-4 rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto scrollbar-hide" style={{ background: '#fff' }}>
+              <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 rounded-t-xl" style={{ background: '#fff', borderBottom: '1px solid #F0F0F0' }}>
+                <div>
+                  <h3 className="font-semibold text-[15px]" style={{ color: '#111' }}>Evaluación de Riesgos (FER)</h3>
+                  <p className="text-[11px]" style={{ color: '#999' }}>
+                    {ferPrefilledFrom ? `Desde: ${ferPrefilledFrom}` : 'Evaluación guiada LA/FT/FPADM'}
+                    {' — '}Paso {ferStep} de 3
+                  </p>
+                </div>
+                <button onClick={() => setShowFerForm(false)} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-gray-100" style={{ color: '#BBB' }}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+
+              {/* Step indicator */}
+              <div className="flex items-center gap-1 px-6 pt-4">
+                {[1,2,3].map(s => (
+                  <div key={s} className="flex-1 h-1 rounded-full" style={{ background: ferStep >= s ? '#D97706' : '#F0F0F0' }}></div>
+                ))}
+              </div>
+
+              <div className="p-6">
+                {/* FER STEP 1: Reportante + Evento */}
+                {ferStep === 1 && (
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: '#D97706' }}>Datos del reportante</div>
+                      <div className="grid grid-cols-2 gap-3">
+                        {[
+                          { key: 'reportante_nombre', label: 'Nombre', placeholder: 'Quien reporta el evento' },
+                          { key: 'reportante_cargo', label: 'Cargo', placeholder: 'Ej: Asesor comercial' },
+                          { key: 'reportante_area', label: 'Area', placeholder: 'Ej: Ventas' },
+                          { key: 'reportante_superior', label: 'Superior jerárquico', placeholder: empresaGuardada?.representante_legal || '' },
+                        ].map(f => (
+                          <div key={f.key}>
+                            <label className="text-[11px] font-medium block mb-1" style={{ color: '#555' }}>{f.label}</label>
+                            <input type="text" value={(ferForm as any)[f.key]} onChange={e => setFerForm(p => ({...p, [f.key]: e.target.value}))}
+                              className="w-full px-3 py-2 rounded-lg text-[12px] outline-none" style={{ border: '1px solid #E0E0E0' }} placeholder={f.placeholder} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: '#D97706' }}>Contraparte involucrada (opcional)</div>
+                      <input type="text" value={ferForm.contraparte_nombre} onChange={e => setFerForm(p => ({...p, contraparte_nombre: e.target.value}))}
+                        className="w-full px-3 py-2 rounded-lg text-[12px] outline-none" style={{ border: '1px solid #E0E0E0' }} placeholder="Nombre de la contraparte, si aplica" />
+                    </div>
+
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: '#D97706' }}>Descripción del evento</div>
+                      <textarea value={ferForm.descripcion} onChange={e => setFerForm(p => ({...p, descripcion: e.target.value}))} rows={3}
+                        className="w-full px-3 py-2 rounded-lg text-[12px] outline-none resize-none" style={{ border: '1px solid #E0E0E0' }}
+                        placeholder="Describe detalladamente el evento de riesgo identificado: fechas, personas, montos, circunstancias..." />
+                    </div>
+
+                    <button onClick={() => setFerStep(2)} disabled={!ferForm.reportante_nombre || !ferForm.descripcion}
+                      className="w-full py-2.5 rounded-lg text-[13px] font-semibold text-white disabled:opacity-40" style={{ background: '#D97706' }}>
+                      Siguiente: Evaluar riesgo
+                    </button>
+                  </div>
+                )}
+
+                {/* FER STEP 2: Evaluación del riesgo */}
+                {ferStep === 2 && (
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: '#D97706' }}>Naturaleza del evento</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { key: 'fraude', label: 'Fraude', icon: '💰' },
+                          { key: 'lavado', label: 'Lavado de activos', icon: '🏦' },
+                          { key: 'terrorismo', label: 'Financiación terrorismo', icon: '⚠️' },
+                          { key: 'corrupcion', label: 'Corrupción', icon: '🔗' },
+                          { key: 'operacion_inusual', label: 'Operación inusual', icon: '🔍' },
+                          { key: 'otro', label: 'Otro', icon: '📋' },
+                        ].map(n => (
+                          <button key={n.key} onClick={() => setFerForm(p => ({...p, naturaleza: n.key}))}
+                            className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-[12px] font-medium text-left transition-all"
+                            style={ferForm.naturaleza === n.key ? { background: '#FFFBEB', border: '1.5px solid #D97706', color: '#92400E' } : { background: '#FAFAFA', border: '1.5px solid #F0F0F0', color: '#666' }}>
+                            <span>{n.icon}</span> {n.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: '#D97706' }}>Impacto potencial</div>
+                      <div className="flex gap-2">
+                        {[
+                          { key: 'bajo', label: 'Bajo', desc: 'Impacto menor', color: '#059669', bg: '#ECFDF5' },
+                          { key: 'moderado', label: 'Moderado', desc: 'Impacto controlable', color: '#D97706', bg: '#FFFBEB' },
+                          { key: 'alto', label: 'Alto', desc: 'Pérdida significativa', color: '#DC2626', bg: '#FEF2F2' },
+                        ].map(imp => (
+                          <button key={imp.key} onClick={() => setFerForm(p => ({...p, impacto: imp.key}))}
+                            className="flex-1 p-3 rounded-lg text-center transition-all"
+                            style={ferForm.impacto === imp.key ? { background: imp.bg, border: `1.5px solid ${imp.color}` } : { background: '#FAFAFA', border: '1.5px solid #F0F0F0' }}>
+                            <div className="text-[12px] font-semibold" style={{ color: ferForm.impacto === imp.key ? imp.color : '#999' }}>{imp.label}</div>
+                            <div className="text-[10px] mt-0.5" style={{ color: ferForm.impacto === imp.key ? imp.color : '#CCC' }}>{imp.desc}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: '#D97706' }}>Probabilidad de ocurrencia</div>
+                      <div className="flex gap-2">
+                        {[
+                          { key: 'baja', label: 'Baja', desc: 'Poco probable', color: '#059669', bg: '#ECFDF5' },
+                          { key: 'moderada', label: 'Moderada', desc: 'Podría ocurrir', color: '#D97706', bg: '#FFFBEB' },
+                          { key: 'alta', label: 'Alta', desc: 'Probable que ocurra', color: '#DC2626', bg: '#FEF2F2' },
+                        ].map(prob => (
+                          <button key={prob.key} onClick={() => setFerForm(p => ({...p, probabilidad: prob.key}))}
+                            className="flex-1 p-3 rounded-lg text-center transition-all"
+                            style={ferForm.probabilidad === prob.key ? { background: prob.bg, border: `1.5px solid ${prob.color}` } : { background: '#FAFAFA', border: '1.5px solid #F0F0F0' }}>
+                            <div className="text-[12px] font-semibold" style={{ color: ferForm.probabilidad === prob.key ? prob.color : '#999' }}>{prob.label}</div>
+                            <div className="text-[10px] mt-0.5" style={{ color: ferForm.probabilidad === prob.key ? prob.color : '#CCC' }}>{prob.desc}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Risk preview */}
+                    {(() => {
+                      const matrizRiesgo: Record<string, Record<string, string>> = {
+                        alta: { alto: 'alto', moderado: 'alto', bajo: 'moderado' },
+                        moderada: { alto: 'alto', moderado: 'moderado', bajo: 'bajo' },
+                        baja: { alto: 'moderado', moderado: 'bajo', bajo: 'bajo' },
+                      };
+                      const ri = matrizRiesgo[ferForm.probabilidad]?.[ferForm.impacto] || 'moderado';
+                      const riColor = ri === 'alto' ? '#DC2626' : ri === 'moderado' ? '#D97706' : '#059669';
+                      const riBg = ri === 'alto' ? '#FEF2F2' : ri === 'moderado' ? '#FFFBEB' : '#ECFDF5';
+                      return (
+                        <div className="p-3 rounded-lg flex items-center justify-between" style={{ background: riBg }}>
+                          <span className="text-[12px] font-medium" style={{ color: riColor }}>Riesgo inherente calculado:</span>
+                          <span className="text-[13px] font-bold uppercase" style={{ color: riColor }}>{ri}</span>
+                        </div>
+                      );
+                    })()}
+
+                    <div className="flex gap-3">
+                      <button onClick={() => setFerStep(1)} className="px-4 py-2.5 rounded-lg text-[13px] font-medium" style={{ border: '1px solid #E0E0E0', color: '#555' }}>Atrás</button>
+                      <button onClick={() => setFerStep(3)} className="flex-1 py-2.5 rounded-lg text-[13px] font-semibold text-white" style={{ background: '#D97706' }}>
+                        Siguiente: Decisión y plan
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* FER STEP 3: Decisión + generar */}
+                {ferStep === 3 && (
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: '#D97706' }}>Decisión frente al evento</div>
+                      <div className="flex gap-2">
+                        <button onClick={() => setFerForm(p => ({...p, continuar: false}))}
+                          className="flex-1 p-3 rounded-lg text-left transition-all"
+                          style={!ferForm.continuar ? { background: '#FEF2F2', border: '1.5px solid #DC2626' } : { background: '#FAFAFA', border: '1.5px solid #F0F0F0' }}>
+                          <div className="text-[12px] font-semibold" style={{ color: !ferForm.continuar ? '#DC2626' : '#999' }}>No continuar</div>
+                          <div className="text-[10px] mt-0.5" style={{ color: !ferForm.continuar ? '#DC2626' : '#CCC' }}>Detener la situación o actividad</div>
+                        </button>
+                        <button onClick={() => setFerForm(p => ({...p, continuar: true}))}
+                          className="flex-1 p-3 rounded-lg text-left transition-all"
+                          style={ferForm.continuar ? { background: '#FFFBEB', border: '1.5px solid #D97706' } : { background: '#FAFAFA', border: '1.5px solid #F0F0F0' }}>
+                          <div className="text-[12px] font-semibold" style={{ color: ferForm.continuar ? '#D97706' : '#999' }}>Continuar con plan</div>
+                          <div className="text-[10px] mt-0.5" style={{ color: ferForm.continuar ? '#D97706' : '#CCC' }}>Aplicar plan de tratamiento</div>
+                        </button>
+                      </div>
+                    </div>
+
+                    {ferForm.continuar && (
+                      <>
+                        <div>
+                          <label className="text-[11px] font-medium block mb-1" style={{ color: '#555' }}>Justificación para continuar</label>
+                          <textarea value={ferForm.justificacion} onChange={e => setFerForm(p => ({...p, justificacion: e.target.value}))} rows={2}
+                            className="w-full px-3 py-2 rounded-lg text-[12px] outline-none resize-none" style={{ border: '1px solid #E0E0E0' }}
+                            placeholder="Explica por qué es viable continuar con la actividad..." />
+                        </div>
+
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: '#D97706' }}>Plan de tratamiento</div>
+                          <div className="space-y-3">
+                            <div>
+                              <label className="text-[11px] font-medium block mb-1.5" style={{ color: '#555' }}>Objetivo del plan</label>
+                              <div className="flex gap-2">
+                                {[
+                                  { key: 'evitar', label: 'Evitar el riesgo' },
+                                  { key: 'reducir', label: 'Reducir impacto' },
+                                  { key: 'transferir', label: 'Transferir riesgo' },
+                                ].map(o => (
+                                  <button key={o.key} onClick={() => setFerForm(p => ({...p, plan_objetivo: o.key}))}
+                                    className="flex-1 px-2 py-2 rounded-lg text-[11px] font-medium transition-all"
+                                    style={ferForm.plan_objetivo === o.key ? { background: '#111', color: '#fff' } : { background: '#F5F5F5', color: '#666' }}>
+                                    {o.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <label className="text-[11px] font-medium block mb-1" style={{ color: '#555' }}>Descripción del plan</label>
+                              <textarea value={ferForm.plan_descripcion} onChange={e => setFerForm(p => ({...p, plan_descripcion: e.target.value}))} rows={2}
+                                className="w-full px-3 py-2 rounded-lg text-[12px] outline-none resize-none" style={{ border: '1px solid #E0E0E0' }}
+                                placeholder="Acciones concretas a implementar..." />
+                            </div>
+                            <div>
+                              <label className="text-[11px] font-medium block mb-1.5" style={{ color: '#555' }}>Monitoreo</label>
+                              <div className="flex gap-2">
+                                {['mensual', 'bimestral', 'trimestral', 'semestral'].map(m => (
+                                  <button key={m} onClick={() => setFerForm(p => ({...p, plan_monitoreo: m}))}
+                                    className="flex-1 px-2 py-1.5 rounded-lg text-[11px] font-medium capitalize transition-all"
+                                    style={ferForm.plan_monitoreo === m ? { background: '#111', color: '#fff' } : { background: '#F5F5F5', color: '#666' }}>
+                                    {m}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {error && <div className="p-3 rounded-lg text-[12px]" style={{ background: '#FEF2F2', color: '#DC2626' }}>{error}</div>}
+
+                    <div className="flex gap-3">
+                      <button onClick={() => setFerStep(2)} className="px-4 py-2.5 rounded-lg text-[13px] font-medium" style={{ border: '1px solid #E0E0E0', color: '#555' }}>Atrás</button>
+                      <button onClick={handleGenerarFer} disabled={loadingFer}
+                        className="flex-1 py-2.5 rounded-lg text-[13px] font-semibold text-white disabled:opacity-50" style={{ background: '#D97706' }}>
+                        {loadingFer ? 'Generando FER...' : 'Generar Evaluación de Riesgos'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
