@@ -70,6 +70,9 @@ export default function DashboardPage() {
   const [trabajadorForm, setTrabajadorForm] = useState({ nombre: '', cedula: '', cargo: '', area: '', fecha_ingreso: '', contratoBase64: '', contratoNombre: '' });
   const [loadingDeclaracion, setLoadingDeclaracion] = useState<string | null>(null);
   const [loadingExtraccion, setLoadingExtraccion] = useState(false);
+  const [showListasForm, setShowListasForm] = useState(false);
+  const [listasForm, setListasForm] = useState({ nombre: '', nit: '', tipo_persona: 'juridica', tipo_relacion: 'cliente' });
+  const [loadingListas, setLoadingListas] = useState(false);
   const trabajadorFileRef = useRef<HTMLInputElement>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -942,6 +945,60 @@ export default function DashboardPage() {
                         </div>
                         <p className="text-[11px] mt-3" style={{ color: '#BBB' }}>Personalizados con IA para tu sector APNFD según la Resolución 100-006322 de 2023.</p>
                       </div>
+
+                      {/* Listas Restrictivas - standalone */}
+                      <div className="mb-5 p-4 rounded-xl" style={{ background: '#F0F4FF', border: '1px solid #DBEAFE' }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[9px] font-bold" style={{ background: '#1E40AF' }}>D</div>
+                          <div>
+                            <div className="text-[12px] font-semibold" style={{ color: '#1E40AF' }}>Listas Restrictivas</div>
+                            <div className="text-[10px]" style={{ color: '#6B7FAA' }}>Formato de consulta por contraparte — OFAC, ONU, Procuraduría y más</div>
+                          </div>
+                        </div>
+                        {!showListasForm ? (
+                          <button onClick={() => setShowListasForm(true)} className="w-full mt-1 py-2 rounded-lg text-[12px] font-medium" style={{ background: '#1E40AF', color: '#fff' }}>
+                            Generar formato de consulta
+                          </button>
+                        ) : (
+                          <div className="mt-2 space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              <input placeholder="Nombre o Razón Social" value={listasForm.nombre} onChange={e => setListasForm(p => ({ ...p, nombre: e.target.value }))}
+                                className="px-3 py-2 rounded-lg text-[12px] outline-none" style={{ background: '#fff', border: '1px solid #DBEAFE' }} />
+                              <input placeholder="NIT o Cédula" value={listasForm.nit} onChange={e => setListasForm(p => ({ ...p, nit: e.target.value }))}
+                                className="px-3 py-2 rounded-lg text-[12px] outline-none" style={{ background: '#fff', border: '1px solid #DBEAFE' }} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <select value={listasForm.tipo_persona} onChange={e => setListasForm(p => ({ ...p, tipo_persona: e.target.value }))}
+                                className="px-3 py-2 rounded-lg text-[12px] outline-none" style={{ background: '#fff', border: '1px solid #DBEAFE' }}>
+                                <option value="juridica">Persona Jurídica</option>
+                                <option value="natural">Persona Natural</option>
+                              </select>
+                              <select value={listasForm.tipo_relacion} onChange={e => setListasForm(p => ({ ...p, tipo_relacion: e.target.value }))}
+                                className="px-3 py-2 rounded-lg text-[12px] outline-none" style={{ background: '#fff', border: '1px solid #DBEAFE' }}>
+                                <option value="cliente">Cliente</option>
+                                <option value="proveedor">Proveedor</option>
+                                <option value="aliado">Aliado</option>
+                              </select>
+                            </div>
+                            <div className="flex gap-2">
+                              <button onClick={() => setShowListasForm(false)} className="px-3 py-2 rounded-lg text-[12px] font-medium" style={btnSecondary}>Cancelar</button>
+                              <button disabled={!listasForm.nombre || loadingListas} onClick={async () => {
+                                setLoadingListas(true); setError('');
+                                try {
+                                  const resp = await fetch('/api/generar-listas-restrictivas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, CONTRAPARTE: { razon_social: listasForm.nombre, nit_cc: listasForm.nit, tipo_persona: listasForm.tipo_persona, tipo_relacion: listasForm.tipo_relacion } }) });
+                                  const result = await resp.json();
+                                  if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'); await saveDocumento(empresaGuardada.id, 'listas_restrictivas', result.filename, result.base64); if (user) await logActivity(empresaGuardada.id, user.email, 'generar_listas_restrictivas', `Consulta: ${listasForm.nombre}`); setShowListasForm(false); setListasForm({ nombre: '', nit: '', tipo_persona: 'juridica', tipo_relacion: 'cliente' }); }
+                                  else { setError('Error: ' + (result.error || 'intenta de nuevo')); }
+                                } catch (err) { setError('Error de conexión'); }
+                                finally { setLoadingListas(false); }
+                              }} className="flex-1 py-2 rounded-lg text-[12px] font-semibold text-white disabled:opacity-50" style={{ background: '#1E40AF' }}>
+                                {loadingListas ? 'Generando...' : 'Generar Listas Restrictivas'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
                       <div className="flex gap-3">
                         <button onClick={() => setStep(2)} className="flex-1 py-2.5 rounded-lg text-white font-semibold text-[13px]" style={btnPrimary}>Continuar con la generación</button>
                         <button onClick={() => fileInputRef.current?.click()} className="px-4 py-2.5 rounded-lg text-[13px] font-medium" style={btnSecondary}>Actualizar certificado</button>
