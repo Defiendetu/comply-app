@@ -323,66 +323,18 @@ async function consultarProcuraduria(identificacion: string, apifyToken?: string
 }
 
 // ==========================================
-// Contraloría - Boletín de Responsables Fiscales (datos.gov.co)
+// Contraloría - Consulta manual (reCAPTCHA impide automatización)
 // ==========================================
-async function consultarContraloria(nombre: string, identificacion?: string): Promise<ResultadoLista> {
-  const resultado: ResultadoLista = {
+async function consultarContraloria(): Promise<ResultadoLista> {
+  return {
     lista: 'Responsables fiscales - Contraloría',
     fuente: 'Contraloría General de la República',
     tipo: 'nacional',
-    resultado: 'sin_coincidencia',
+    resultado: 'no_consultado',
     coincidencias: [],
-    url: 'https://www.datos.gov.co/Funci-n-p-blica/Bolet-n-de-Responsables-Fiscales/jr8e-e8tu',
+    url: 'https://cfiscal.contraloria.gov.co/certificados/certificadopersonanatural.aspx',
+    detalles: 'Requiere verificación manual — el sitio usa reCAPTCHA',
   };
-
-  try {
-    let url: string;
-    if (identificacion) {
-      url = `https://www.datos.gov.co/resource/jr8e-e8tu.json?n_mero_de_identificaci_n=${encodeURIComponent(identificacion)}&$limit=10`;
-    } else {
-      url = `https://www.datos.gov.co/resource/jr8e-e8tu.json?$q=${encodeURIComponent(nombre)}&$limit=10`;
-    }
-
-    const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
-    if (!resp.ok) {
-      resultado.resultado = 'no_consultado';
-      resultado.detalles = 'No se pudo acceder al Boletín de Responsables Fiscales';
-      return resultado;
-    }
-
-    const data = await resp.json();
-
-    for (const item of data) {
-      const entidad = item.raz_n_social_de_la_entidad || '';
-      const sancion = item.tipo_de_sanci_n_multa || '';
-      const monto = item.monto_de_la_multa_o_sanci || '';
-      const detalle = item.descripci_n_o_detalle_resumen || '';
-
-      if (identificacion) {
-        resultado.resultado = 'coincidencia_positiva';
-        resultado.coincidencias.push(
-          `${entidad} | ${sancion} | Monto: ${monto}${detalle ? ' | ' + detalle.substring(0, 100) : ''}`
-        );
-      } else {
-        const sim = similitud(nombre, entidad);
-        if (sim >= 0.7) {
-          resultado.resultado = sim >= 0.95 ? 'coincidencia_positiva' : 'coincidencia_parcial';
-          resultado.coincidencias.push(
-            `${entidad} | ${sancion} | Monto: ${monto}`
-          );
-        }
-      }
-    }
-
-    if (resultado.coincidencias.length === 0 && data.length === 0) {
-      resultado.detalles = 'No aparece en el Boletín de Responsables Fiscales';
-    }
-  } catch (err: any) {
-    resultado.resultado = 'no_consultado';
-    resultado.detalles = `Error consultando Contraloría: ${err.message}`;
-  }
-
-  return resultado;
 }
 
 // ==========================================
@@ -404,7 +356,7 @@ export async function POST(request: NextRequest) {
       consultarONU(nombre),
       consultarPEPs(nombre, identificacion),
       consultarProcuraduria(identificacion, apifyToken),
-      consultarContraloria(nombre, identificacion),
+      consultarContraloria(),
     ]);
 
     const totalCoincidencias = resultados.reduce((sum, r) => sum + r.coincidencias.length, 0);
