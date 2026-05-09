@@ -551,22 +551,22 @@ export default function DashboardPage() {
               {/* Compliance Tracker */}
               {empresaGuardada && (() => {
                 const autoHitos = [
-                  { key: 'manual', label: 'Manual de Medidas Mínimas', desc: 'Documento obligatorio del sistema de prevención', done: historialDocumentos.some(d => d.tipo === 'manual'), auto: true },
-                  { key: 'matriz', label: 'Matriz de Riesgo', desc: 'Evaluación de riesgos LA/FT por sector', done: historialDocumentos.some(d => d.tipo === 'matriz'), auto: true },
-                  { key: 'fcc', label: 'Formulario FCC', desc: 'Formato de Conocimiento del Cliente', done: historialDocumentos.some(d => d.tipo === 'fcc'), auto: true },
-                  { key: 'listas', label: 'Consulta de Listas Restrictivas', desc: 'Al menos una consulta realizada', done: historialDocumentos.some(d => d.tipo === 'listas_restrictivas'), auto: true },
-                  { key: 'fer', label: 'Evaluación de Riesgos (FER)', desc: 'Al menos una evaluación realizada', done: historialDocumentos.some(d => d.tipo === 'fer'), auto: true },
+                  { key: 'manual', label: 'Manual de Medidas Mínimas', desc: 'Se genera en la sección Documentos', done: historialDocumentos.some(d => d.tipo === 'manual') },
+                  { key: 'matriz', label: 'Matriz de Riesgo', desc: 'Se genera en la sección Documentos', done: historialDocumentos.some(d => d.tipo === 'matriz') },
+                  { key: 'fcc', label: 'Formulario FCC', desc: 'Se genera en la sección Documentos', done: historialDocumentos.some(d => d.tipo === 'fcc') },
+                  { key: 'listas', label: 'Consulta de Listas Restrictivas', desc: 'Se genera desde Contrapartes o Documentos', done: historialDocumentos.some(d => d.tipo === 'listas_restrictivas') },
+                  { key: 'fer', label: 'Evaluación de Riesgos (FER)', desc: 'Se genera desde Trabajadores, Contrapartes o Documentos', done: historialDocumentos.some(d => d.tipo === 'fer') },
+                  ...(trabajadores.length > 0 ? [
+                    { key: 'capacitacion', label: 'Capacitación del personal', desc: `${trabajadores.filter(t => t.datos_extraidos?.capacitado).length}/${trabajadores.length} marcados como capacitados en Trabajadores`, done: trabajadores.every(t => t.datos_extraidos?.capacitado) },
+                    { key: 'declaraciones', label: 'Declaraciones de trabajadores', desc: `${trabajadores.filter(t => getDeclaracionStatus(t).status === 'vigente').length}/${trabajadores.length} con declaración vigente`, done: trabajadores.every(t => getDeclaracionStatus(t).status === 'vigente') },
+                  ] : []),
                 ];
-                const workerHitos = trabajadores.length > 0 ? [
-                  { key: 'capacitacion', label: 'Capacitación del personal', desc: `${trabajadores.filter(t => t.datos_extraidos?.capacitado).length}/${trabajadores.length} capacitados`, done: trabajadores.length > 0 && trabajadores.every(t => t.datos_extraidos?.capacitado), auto: true },
-                  { key: 'declaraciones', label: 'Declaraciones de trabajadores', desc: `${trabajadores.filter(t => getDeclaracionStatus(t).status === 'vigente').length}/${trabajadores.length} vigentes`, done: trabajadores.length > 0 && trabajadores.every(t => getDeclaracionStatus(t).status === 'vigente'), auto: true },
-                ] : [];
-                const manualHitos = [
-                  { key: 'oficial_cumplimiento', label: 'Oficial de cumplimiento designado', desc: 'Persona responsable del sistema SAGRILAFT', done: hitosManuales.oficial_cumplimiento?.completado || false, auto: false },
-                  { key: 'debida_diligencia', label: 'Debida diligencia implementada', desc: 'Procedimiento formal de conocimiento del cliente', done: hitosManuales.debida_diligencia?.completado || false, auto: false },
-                  { key: 'procedimiento_ros', label: 'Procedimiento para ROS', desc: 'Reporte de Operaciones Sospechosas establecido', done: hitosManuales.procedimiento_ros?.completado || false, auto: false },
+                const manualHitosData = [
+                  { key: 'oficial_cumplimiento', label: 'Oficial de cumplimiento designado', desc: 'Designar formalmente a la persona responsable del sistema SAGRILAFT mediante acta o resolución interna.', placeholder: 'Ej: Acta No. 12 del 15/03/2026 — María López designada', done: hitosManuales.oficial_cumplimiento?.completado || false },
+                  { key: 'debida_diligencia', label: 'Debida diligencia implementada', desc: 'Tener documentado el procedimiento de conocimiento del cliente (KYC) y aplicarlo a nuevas contrapartes.', placeholder: 'Ej: Procedimiento DD-001 aprobado el 10/02/2026', done: hitosManuales.debida_diligencia?.completado || false },
+                  { key: 'procedimiento_ros', label: 'Procedimiento para ROS', desc: 'Establecer el procedimiento interno para detectar y reportar Operaciones Sospechosas ante la UIAF.', placeholder: 'Ej: Protocolo ROS aprobado por junta directiva', done: hitosManuales.procedimiento_ros?.completado || false },
                 ];
-                const allHitos = [...autoHitos, ...workerHitos, ...manualHitos];
+                const allHitos = [...autoHitos, ...manualHitosData];
                 const completed = allHitos.filter(h => h.done).length;
                 const total = allHitos.length;
                 const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -576,6 +576,7 @@ export default function DashboardPage() {
 
                 return (
                   <div className="rounded-xl mb-6 overflow-hidden" style={cardStyle}>
+                    {/* Score header */}
                     <div className="p-6">
                       <div className="flex items-center gap-5">
                         <div className="relative w-24 h-24 flex-shrink-0">
@@ -600,63 +601,81 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    <div style={{ borderTop: '1px solid #F0F0F0' }}>
-                      {allHitos.map((hito, i) => (
-                        <div key={hito.key}>
-                          <div className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50/50 transition-colors" style={i > 0 ? { borderTop: '1px solid #FAFAFA' } : {}}>
-                            {hito.auto ? (
-                              <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: hito.done ? '#059669' : '#F0F0F0' }}>
-                                {hito.done ? (
-                                  <svg className="w-3 h-3" fill="none" stroke="white" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                                ) : (
-                                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#CCC' }}></div>
-                                )}
-                              </div>
+                    {/* Group 1: Auto-detected */}
+                    <div className="px-6 py-2" style={{ background: '#FAFAFA', borderTop: '1px solid #F0F0F0' }}>
+                      <div className="flex items-center gap-2">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="#999" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#999' }}>Se detectan automáticamente</span>
+                        <span className="text-[10px]" style={{ color: '#CCC' }}>— se marcan cuando usas la plataforma</span>
+                      </div>
+                    </div>
+                    <div>
+                      {autoHitos.map((hito, i) => (
+                        <div key={hito.key} className="flex items-center gap-3 px-6 py-3" style={i > 0 ? { borderTop: '1px solid #FAFAFA' } : {}}>
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: hito.done ? '#059669' : '#F0F0F0' }}>
+                            {hito.done ? (
+                              <svg className="w-3 h-3" fill="none" stroke="white" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                             ) : (
-                              <button onClick={() => handleToggleHito(hito.key)} className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-colors" style={{ background: hito.done ? '#059669' : '#F0F0F0', cursor: 'pointer' }}>
-                                {hito.done ? (
-                                  <svg className="w-3 h-3" fill="none" stroke="white" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                                ) : (
-                                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#CCC' }}></div>
-                                )}
-                              </button>
+                              <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#CCC' }}></div>
                             )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[12px] font-medium" style={{ color: hito.done ? '#333' : '#888' }}>{hito.label}</div>
+                            <div className="text-[10px]" style={{ color: hito.done ? '#999' : '#CCC' }}>{hito.desc}</div>
+                          </div>
+                          <span className="text-[9px] px-2 py-0.5 rounded font-medium flex-shrink-0" style={hito.done ? { background: '#ECFDF5', color: '#059669' } : { background: '#F5F5F5', color: '#CCC' }}>
+                            {hito.done ? 'Completado' : 'Pendiente'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Group 2: Manual confirmation */}
+                    <div className="px-6 py-2" style={{ background: '#FFFBEB', borderTop: '1px solid #F0F0F0' }}>
+                      <div className="flex items-center gap-2">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="#D97706" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#92400E' }}>Requieren tu confirmación</span>
+                        <span className="text-[10px]" style={{ color: '#B45309' }}>— marca cuando los hayas implementado</span>
+                      </div>
+                    </div>
+                    <div>
+                      {manualHitosData.map((hito, i) => (
+                        <div key={hito.key}>
+                          <div className="flex items-start gap-3 px-6 py-3.5" style={i > 0 ? { borderTop: '1px solid #FAFAFA' } : {}}>
+                            <button onClick={() => handleToggleHito(hito.key)} className="w-5 h-5 mt-0.5 rounded flex items-center justify-center flex-shrink-0 transition-colors" style={{ background: hito.done ? '#059669' : '#fff', border: hito.done ? 'none' : '2px solid #D0D0D0', cursor: 'pointer', borderRadius: '4px' }}>
+                              {hito.done && <svg className="w-3 h-3" fill="none" stroke="white" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                            </button>
                             <div className="flex-1 min-w-0">
-                              <div className="text-[12px] font-medium" style={{ color: hito.done ? '#333' : '#888' }}>{hito.label}</div>
-                              <div className="text-[10px]" style={{ color: hito.done ? '#999' : '#CCC' }}>
-                                {hito.desc}
-                                {!hito.auto && hito.done && hitosManuales[hito.key]?.fecha && (
-                                  <> &middot; {new Date(hitosManuales[hito.key].fecha!).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}</>
-                                )}
-                                {!hito.auto && hito.done && hitosManuales[hito.key]?.nota && (
-                                  <> &middot; {hitosManuales[hito.key].nota}</>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex-shrink-0">
-                              {hito.auto ? (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded font-medium" style={hito.done ? { background: '#ECFDF5', color: '#059669' } : { background: '#F5F5F5', color: '#CCC' }}>
-                                  {hito.done ? 'Auto' : 'Pendiente'}
-                                </span>
-                              ) : (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded font-medium cursor-pointer" onClick={() => !hito.done && handleToggleHito(hito.key)}
-                                  style={hito.done ? { background: '#ECFDF5', color: '#059669' } : { background: '#FFFBEB', color: '#D97706' }}>
-                                  {hito.done ? 'Completado' : 'Marcar'}
-                                </span>
+                              <div className="text-[12px] font-medium" style={{ color: hito.done ? '#333' : '#555' }}>{hito.label}</div>
+                              <div className="text-[10px] mt-0.5 leading-relaxed" style={{ color: '#999' }}>{hito.desc}</div>
+                              {hito.done && hitosManuales[hito.key]?.fecha && (
+                                <div className="text-[10px] mt-1 flex items-center gap-1" style={{ color: '#059669' }}>
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                  Confirmado el {new Date(hitosManuales[hito.key].fecha!).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                  {hitosManuales[hito.key]?.nota && <> — {hitosManuales[hito.key].nota}</>}
+                                </div>
                               )}
                             </div>
+                            {!hito.done && (
+                              <button onClick={() => handleToggleHito(hito.key)} className="px-3 py-1.5 rounded-lg text-[11px] font-medium flex-shrink-0 transition-colors hover:shadow-sm" style={{ background: '#111', color: '#fff' }}>
+                                Confirmar
+                              </button>
+                            )}
                           </div>
-
                           {editingHito === hito.key && (
-                            <div className="px-6 pb-3 flex gap-2 items-end" style={{ background: '#FAFAFA' }}>
-                              <div className="flex-1">
-                                <label className="text-[10px] font-medium block mb-1" style={{ color: '#888' }}>Nota o evidencia (opcional)</label>
-                                <input type="text" value={hitoNota} onChange={e => setHitoNota(e.target.value)}
-                                  className="w-full px-3 py-1.5 rounded-lg text-[11px] outline-none" style={{ border: '1px solid #E0E0E0' }}
-                                  placeholder="Ej: Acta de designación firmada el 15/03/2026" onKeyDown={e => e.key === 'Enter' && handleConfirmHito(hito.key)} />
+                            <div className="px-6 pb-4 pt-1 ml-8" style={{ background: '#FAFAFA' }}>
+                              <div className="p-3 rounded-lg" style={{ background: '#fff', border: '1px solid #E0E0E0' }}>
+                                <label className="text-[10px] font-semibold block mb-1.5" style={{ color: '#555' }}>Describe brevemente la evidencia o acción realizada</label>
+                                <input type="text" value={hitoNota} onChange={e => setHitoNota(e.target.value)} autoFocus
+                                  className="w-full px-3 py-2 rounded-lg text-[12px] outline-none mb-2" style={{ border: '1px solid #E0E0E0' }}
+                                  placeholder={hito.placeholder} onKeyDown={e => e.key === 'Enter' && handleConfirmHito(hito.key)} />
+                                <div className="flex gap-2 justify-end">
+                                  <button onClick={() => setEditingHito(null)} className="px-3 py-1.5 rounded-lg text-[11px] font-medium" style={{ background: '#F0F0F0', color: '#999' }}>Cancelar</button>
+                                  <button onClick={() => handleConfirmHito(hito.key)} className="px-4 py-1.5 rounded-lg text-[11px] font-medium text-white" style={{ background: '#059669' }}>
+                                    Confirmar hito
+                                  </button>
+                                </div>
                               </div>
-                              <button onClick={() => handleConfirmHito(hito.key)} className="px-3 py-1.5 rounded-lg text-[11px] font-medium text-white" style={{ background: '#059669' }}>Confirmar</button>
-                              <button onClick={() => setEditingHito(null)} className="px-3 py-1.5 rounded-lg text-[11px] font-medium" style={{ background: '#F0F0F0', color: '#999' }}>Cancelar</button>
                             </div>
                           )}
                         </div>
