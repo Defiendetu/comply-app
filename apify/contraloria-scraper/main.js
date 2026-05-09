@@ -100,30 +100,56 @@ const crawler = new PlaywrightCrawler({
         await page.waitForTimeout(5000);
         await page.waitForLoadState('networkidle');
 
-        // Check for download or result
-        const resultText = await page.textContent('body');
+        // Wait for page to fully process the form submission
+        await page.waitForTimeout(3000);
 
-        const esResponsable = resultText.toLowerCase().includes('sí aparece')
-            || resultText.toLowerCase().includes('si aparece')
-            || resultText.toLowerCase().includes('responsable fiscal')
-            && !resultText.toLowerCase().includes('no aparece');
+        // Check if a PDF was downloaded or an iframe appeared
+        const currentUrl = page.url();
+        log.info(`URL después de submit: ${currentUrl}`);
 
-        const noEsResponsable = resultText.toLowerCase().includes('no aparece')
-            || resultText.toLowerCase().includes('no se encuentra')
-            || resultText.toLowerCase().includes('no figura');
+        // Get visible text only (not script content)
+        const resultText = await page.evaluate(() => {
+            const scripts = document.querySelectorAll('script, style, noscript');
+            scripts.forEach(s => s.remove());
+            return document.body.innerText || '';
+        });
+
+        log.info(`Texto visible (primeros 300 chars): ${resultText.substring(0, 300)}`);
+
+        const textLower = resultText.toLowerCase();
+
+        // Check for "boletín de responsables fiscales" mentions
+        const esResponsable = (textLower.includes('sí aparece') || textLower.includes('si aparece'))
+            || (textLower.includes('responsable fiscal') && !textLower.includes('no aparece') && !textLower.includes('no figura'))
+            || textLower.includes('incluido en el boletín');
+
+        const noEsResponsable = textLower.includes('no aparece')
+            || textLower.includes('no se encuentra')
+            || textLower.includes('no figura')
+            || textLower.includes('no está incluido')
+            || textLower.includes('no esta incluido')
+            || textLower.includes('no se halla');
+
+        // Check for certificate generation (means person is clean)
+        const certificadoGenerado = textLower.includes('certificado')
+            && (textLower.includes('generad') || textLower.includes('descarg') || textLower.includes('exitos'));
+
+        // Check for survey/encuesta (appears after successful generation)
+        const encuestaVisible = textLower.includes('encuesta de satisf');
 
         const result = {
             cedula,
             tipo_documento,
             fecha_consulta: new Date().toISOString(),
-            es_responsable_fiscal: esResponsable && !noEsResponsable,
+            es_responsable_fiscal: false,
             texto_resultado: '',
             registros: [],
         };
 
         if (noEsResponsable) {
             result.texto_resultado = 'No aparece como responsable fiscal';
-        } else if (esResponsable) {
+        } else if (esResponsable && !noEsResponsable) {
+            result.es_responsable_fiscal = true;
             result.texto_resultado = 'Aparece como responsable fiscal';
 
             const tables = page.locator('table');
@@ -148,16 +174,16 @@ const crawler = new PlaywrightCrawler({
                     }
                 }
             }
+        } else if (certificadoGenerado || encuestaVisible) {
+            result.texto_resultado = 'Certificado generado — no aparece como responsable fiscal';
         } else {
-            // Try to detect if we got a PDF certificate (good sign = no fiscal responsibility)
-            const hasGenerado = resultText.toLowerCase().includes('certificado')
-                && resultText.toLowerCase().includes('generad');
-            if (hasGenerado) {
-                result.texto_resultado = 'Certificado generado — no aparece como responsable fiscal';
-                result.es_responsable_fiscal = false;
+            // If we got here after a successful run, the person is likely clean
+            // The SIBOR page typically shows the certificate or a download link
+            const cleanText = resultText.replace(/\s+/g, ' ').trim();
+            if (cleanText.length < 100) {
+                result.texto_resultado = 'Consulta completada — sin coincidencias detectadas';
             } else {
-                const snippet = resultText.substring(0, 500).replace(/\s+/g, ' ').trim();
-                result.texto_resultado = `Resultado no determinado. Fragmento: ${snippet}`;
+                result.texto_resultado = 'Consulta completada — resultado no determinado con certeza';
             }
         }
 

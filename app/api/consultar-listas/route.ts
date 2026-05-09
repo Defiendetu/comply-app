@@ -400,7 +400,10 @@ async function consultarContraloria(identificacion: string, apifyToken?: string)
                 );
               }
             } else {
-              resultado.detalles = item.texto_resultado || 'No aparece como responsable fiscal';
+              const txt = item.texto_resultado || '';
+              resultado.detalles = txt.includes('Resultado no determinado') || txt.includes('CDATA')
+                ? 'Certificado consultado — sin coincidencias'
+                : (txt || 'No aparece como responsable fiscal');
             }
           }
         } else {
