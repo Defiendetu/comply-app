@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-type ActiveView = 'home' | 'documentos' | 'contrapartes' | 'matriz' | 'agentes' | 'reportes';
+type ActiveView = 'home' | 'documentos' | 'contrapartes' | 'trabajadores' | 'matriz' | 'agentes' | 'reportes';
 
 interface EmpresaData {
   id: string;
@@ -68,6 +68,12 @@ export default function DashboardPage() {
   const [loadingContraparte, setLoadingContraparte] = useState(false);
   const contraparteFileRef = useRef<HTMLInputElement>(null);
 
+  // Trabajadores
+  const [trabajadores, setTrabajadores] = useState<any[]>([]);
+  const [showNuevoTrabajador, setShowNuevoTrabajador] = useState(false);
+  const [trabajadorForm, setTrabajadorForm] = useState({ nombre: '', cedula: '', cargo: '', area: '', fecha_ingreso: '' });
+  const [loadingDeclaracion, setLoadingDeclaracion] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadingMessages = [
@@ -127,7 +133,10 @@ export default function DashboardPage() {
           .select('*')
           .eq('empresa_id', empresas[0].id)
           .order('created_at', { ascending: false });
-        if (contras) setContrapartes(contras);
+        if (contras) {
+          setContrapartes(contras);
+          setTrabajadores(contras.filter((c: any) => c.tipo_relacion === 'empleado'));
+        }
       }
     } catch (err) {
       console.error('Error loading data:', err);
@@ -325,6 +334,102 @@ export default function DashboardPage() {
     } catch (err) { console.error('Error generating FCC:', err); setError('Error de conexión al generar FCC'); }
   };
 
+  // Save new worker (as contraparte tipo_relacion=empleado)
+  const handleSaveTrabajador = async () => {
+    if (!trabajadorForm.nombre) { setError('Ingresa el nombre del trabajador'); return; }
+    if (!empresaGuardada) { setError('Primero registra tu empresa'); return; }
+    setError('');
+    try {
+      const datosExtra = {
+        cargo: trabajadorForm.cargo,
+        area: trabajadorForm.area,
+        fecha_ingreso: trabajadorForm.fecha_ingreso,
+        fecha_ultima_declaracion: null,
+        capacitado: false,
+        fecha_capacitacion: null,
+      };
+      const { data: saved, error: dbError } = await supabase.from('contrapartes').insert({
+        empresa_id: empresaGuardada.id,
+        tipo_persona: 'natural',
+        tipo_relacion: 'empleado',
+        razon_social: trabajadorForm.nombre,
+        nit_cc: trabajadorForm.cedula,
+        estado: 'activo',
+        datos_extraidos: datosExtra,
+      }).select().single();
+      if (dbError) { setError('Error guardando: ' + dbError.message); return; }
+      if (saved) {
+        setTrabajadores(prev => [saved, ...prev]);
+        setContrapartes(prev => [saved, ...prev]);
+        setShowNuevoTrabajador(false);
+        setTrabajadorForm({ nombre: '', cedula: '', cargo: '', area: '', fecha_ingreso: '' });
+        if (user) await logActivity(empresaGuardada.id, user.email, 'registrar_trabajador', `Trabajador: ${saved.razon_social}`);
+      }
+    } catch (err) { setError(err instanceof Error ? err.message : 'Error al guardar'); }
+  };
+
+  // Generate declaration for a worker
+  const handleGenerarDeclaracion = async (trabajador: any) => {
+    if (!empresaGuardada) return;
+    setLoadingDeclaracion(trabajador.id);
+    try {
+      const resp = await fetch('/api/generar-declaracion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          RAZON_SOCIAL: empresaGuardada.razon_social,
+          NIT: empresaGuardada.nit,
+          REPRESENTANTE_LEGAL: empresaGuardada.representante_legal,
+          CIUDAD: empresaGuardada.ciudad,
+          SIGLAS: empresaGuardada.razon_social?.split(' ').filter((p: string) => p.length > 1).map((p: string) => p[0]).join('').substring(0, 4).toUpperCase(),
+          TRABAJADOR: {
+            nombre: trabajador.razon_social,
+            cedula: trabajador.nit_cc,
+            cargo: trabajador.datos_extraidos?.cargo || '',
+            area: trabajador.datos_extraidos?.area || '',
+          },
+        }),
+      });
+      const result = await resp.json();
+      if (result.success && result.base64) {
+        dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        await saveDocumento(empresaGuardada.id, 'declaracion_trabajadores', result.filename, result.base64);
+        // Update fecha_ultima_declaracion
+        const now = new Date().toISOString();
+        const updatedDatos = { ...(trabajador.datos_extraidos || {}), fecha_ultima_declaracion: now };
+        await supabase.from('contrapartes').update({ datos_extraidos: updatedDatos }).eq('id', trabajador.id);
+        setTrabajadores(prev => prev.map(t => t.id === trabajador.id ? { ...t, datos_extraidos: updatedDatos } : t));
+      } else {
+        setError('Error generando declaración: ' + (result.error || 'intenta de nuevo'));
+      }
+    } catch (err) { setError('Error de conexión al generar declaración'); }
+    finally { setLoadingDeclaracion(null); }
+  };
+
+  // Toggle training status
+  const handleToggleCapacitacion = async (trabajador: any) => {
+    const wasCapacitado = trabajador.datos_extraidos?.capacitado;
+    const updatedDatos = {
+      ...(trabajador.datos_extraidos || {}),
+      capacitado: !wasCapacitado,
+      fecha_capacitacion: !wasCapacitado ? new Date().toISOString() : null,
+    };
+    await supabase.from('contrapartes').update({ datos_extraidos: updatedDatos }).eq('id', trabajador.id);
+    setTrabajadores(prev => prev.map(t => t.id === trabajador.id ? { ...t, datos_extraidos: updatedDatos } : t));
+  };
+
+  // Declaration status helper
+  const getDeclaracionStatus = (trabajador: any) => {
+    const fechaDecl = trabajador.datos_extraidos?.fecha_ultima_declaracion;
+    if (!fechaDecl) return { status: 'pendiente', color: '#EF4444', bg: '#FEF2F2', label: 'Sin declaración' };
+    const fecha = new Date(fechaDecl);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - fecha.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays > 365) return { status: 'vencida', color: '#EF4444', bg: '#FEF2F2', label: 'Vencida' };
+    if (diffDays > 335) return { status: 'por_vencer', color: '#F59E0B', bg: '#FFFBEB', label: `Vence en ${365 - diffDays}d` };
+    return { status: 'vigente', color: '#059669', bg: '#ECFDF5', label: 'Vigente' };
+  };
+
   const handleLogout = () => { localStorage.removeItem('complyUser'); router.push('/login'); };
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -384,7 +489,8 @@ export default function DashboardPage() {
   const nav = [
     { id: 'home' as ActiveView, label: 'Inicio', svg: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
     { id: 'documentos' as ActiveView, label: 'Documentos', svg: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
-    { id: 'contrapartes' as ActiveView, label: 'Contrapartes', svg: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', badge: 'Nuevo' },
+    { id: 'contrapartes' as ActiveView, label: 'Contrapartes', svg: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
+    { id: 'trabajadores' as ActiveView, label: 'Trabajadores', svg: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', badge: 'Nuevo' },
     { id: 'agentes' as ActiveView, label: 'AI Agents', svg: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z', badge: 'Nuevo' },
     { id: 'matriz' as ActiveView, label: 'Matriz', svg: 'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7', badge: 'Próximo', disabled: true },
     { id: 'reportes' as ActiveView, label: 'Reportes', svg: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', badge: 'Próximo', disabled: true },
@@ -454,7 +560,7 @@ export default function DashboardPage() {
         <header className="sticky top-0 z-20 px-8 h-16 flex items-center justify-between" style={{ background: 'rgba(250,250,250,0.8)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
           <div>
             <h1 className="text-lg font-bold" style={{ color: '#0F172A' }}>
-              {activeView === 'home' && 'Panel de Control'}{activeView === 'documentos' && 'Generar Documentos'}{activeView === 'agentes' && 'AI Agents'}{activeView === 'contrapartes' && 'Contrapartes'}
+              {activeView === 'home' && 'Panel de Control'}{activeView === 'documentos' && 'Generar Documentos'}{activeView === 'agentes' && 'AI Agents'}{activeView === 'contrapartes' && 'Contrapartes'}{activeView === 'trabajadores' && 'Trabajadores'}
             </h1>
           </div>
           <button onClick={() => { setActiveView('documentos'); setStep(empresaGuardada ? 2 : 1); }} className="px-4 py-2 rounded-full text-[13px] font-semibold text-white" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>+ Nuevo Análisis</button>
@@ -717,6 +823,132 @@ export default function DashboardPage() {
                   <h3 className="font-bold text-[15px] mb-1" style={{ color: '#18181B' }}>No tienes contrapartes registradas</h3>
                   <p className="text-[13px] mb-4" style={{ color: '#71717A' }}>Registra tus clientes, proveedores y empleados para generar FCC personalizados.</p>
                   <button onClick={() => setShowNuevaContraparte(true)} className="px-5 py-2 rounded-xl text-[13px] font-bold text-white" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>+ Registrar primera contraparte</button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ======== TRABAJADORES ======== */}
+          {activeView === 'trabajadores' && (
+            <div>
+              {/* Stats bar */}
+              {trabajadores.length > 0 && (
+                <div className="grid grid-cols-4 gap-4 mb-6">
+                  {[
+                    { label: 'Total', value: trabajadores.length, color: '#6366F1', bg: '#EEF2FF' },
+                    { label: 'Vigentes', value: trabajadores.filter(t => getDeclaracionStatus(t).status === 'vigente').length, color: '#059669', bg: '#ECFDF5' },
+                    { label: 'Por vencer', value: trabajadores.filter(t => getDeclaracionStatus(t).status === 'por_vencer').length, color: '#F59E0B', bg: '#FFFBEB' },
+                    { label: 'Pendientes', value: trabajadores.filter(t => ['pendiente', 'vencida'].includes(getDeclaracionStatus(t).status)).length, color: '#EF4444', bg: '#FEF2F2' },
+                  ].map((s, i) => (
+                    <div key={i} className="rounded-xl p-4 text-center" style={{ background: s.bg, border: `1px solid ${s.color}20` }}>
+                      <div className="text-2xl font-black" style={{ color: s.color }}>{s.value}</div>
+                      <div className="text-[11px] font-semibold mt-1" style={{ color: s.color }}>{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <p className="text-[13px]" style={{ color: '#71717A' }}>Gestiona las declaraciones SAGRILAFT de tus trabajadores. Alertas automáticas de renovación anual.</p>
+                <button onClick={() => setShowNuevoTrabajador(true)} className="px-4 py-2 rounded-xl text-[13px] font-bold text-white" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>+ Nuevo Trabajador</button>
+              </div>
+
+              {/* New Worker Form */}
+              {showNuevoTrabajador && (
+                <div className="rounded-2xl p-6 mb-6" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.06)' }}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-[15px]" style={{ color: '#18181B' }}>Registrar Nuevo Trabajador</h3>
+                    <button onClick={() => setShowNuevoTrabajador(false)} className="text-[20px]" style={{ color: '#A1A1AA' }}>×</button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>Nombre completo *</label>
+                      <input type="text" value={trabajadorForm.nombre} onChange={e => setTrabajadorForm(p => ({...p, nombre: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: '#E4E4E7' }} placeholder="Juan Pérez López" />
+                    </div>
+                    <div>
+                      <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>Cédula *</label>
+                      <input type="text" value={trabajadorForm.cedula} onChange={e => setTrabajadorForm(p => ({...p, cedula: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: '#E4E4E7' }} placeholder="1023456789" />
+                    </div>
+                    <div>
+                      <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>Cargo</label>
+                      <input type="text" value={trabajadorForm.cargo} onChange={e => setTrabajadorForm(p => ({...p, cargo: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: '#E4E4E7' }} placeholder="Asesor Comercial" />
+                    </div>
+                    <div>
+                      <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>Área</label>
+                      <input type="text" value={trabajadorForm.area} onChange={e => setTrabajadorForm(p => ({...p, area: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: '#E4E4E7' }} placeholder="Ventas" />
+                    </div>
+                    <div>
+                      <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>Fecha de ingreso</label>
+                      <input type="date" value={trabajadorForm.fecha_ingreso} onChange={e => setTrabajadorForm(p => ({...p, fecha_ingreso: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: '#E4E4E7' }} />
+                    </div>
+                  </div>
+                  {error && <div className="mb-4 p-3 rounded-lg text-[13px] text-red-700" style={{ background: '#FEF2F2' }}>{error}</div>}
+                  <div className="flex gap-3">
+                    <button onClick={handleSaveTrabajador} className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>Registrar trabajador</button>
+                    <button onClick={() => setShowNuevoTrabajador(false)} className="px-4 py-2.5 rounded-xl text-[13px] font-semibold" style={{ border: '1px solid #E4E4E7', color: '#71717A' }}>Cancelar</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Workers list */}
+              {trabajadores.length > 0 ? (
+                <div className="space-y-3">
+                  {trabajadores.map((t) => {
+                    const declStatus = getDeclaracionStatus(t);
+                    const capacitado = t.datos_extraidos?.capacitado;
+                    return (
+                      <div key={t.id} className="card-lift rounded-xl p-5" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.05)' }}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold text-white" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>
+                              {t.razon_social?.[0]?.toUpperCase() || '?'}
+                            </div>
+                            <div>
+                              <div className="font-bold text-[14px]" style={{ color: '#18181B' }}>{t.razon_social || 'Sin nombre'}</div>
+                              <div className="text-[12px]" style={{ color: '#71717A' }}>
+                                C.C. {t.nit_cc || 'N/A'} — {t.datos_extraidos?.cargo || 'Sin cargo'} — {t.datos_extraidos?.area || 'Sin área'}
+                              </div>
+                              {t.datos_extraidos?.fecha_ingreso && (
+                                <div className="text-[10px] mt-0.5" style={{ color: '#A1A1AA' }}>
+                                  Ingreso: {new Date(t.datos_extraidos.fecha_ingreso).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {/* Capacitación toggle */}
+                            <button onClick={() => handleToggleCapacitacion(t)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold border" style={capacitado ? { background: '#ECFDF5', borderColor: '#059669', color: '#059669' } : { background: '#FEF2F2', borderColor: '#EF4444', color: '#EF4444' }} title={capacitado ? 'Capacitado' : 'Sin capacitar'}>
+                              {capacitado ? '✓ Capacitado' : '✕ Sin capacitar'}
+                            </button>
+                            {/* Declaration status */}
+                            <span className="text-[10px] px-2.5 py-1 rounded-full font-bold" style={{ background: declStatus.bg, color: declStatus.color }}>
+                              {declStatus.label}
+                            </span>
+                            {/* Generate button */}
+                            <button onClick={() => handleGenerarDeclaracion(t)} disabled={loadingDeclaracion === t.id} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-white disabled:opacity-50" style={{ background: '#6366F1' }}>
+                              {loadingDeclaracion === t.id ? '...' : 'Generar Declaración'}
+                            </button>
+                            {/* Delete */}
+                            <button onClick={async () => {
+                              if (confirm('¿Eliminar este trabajador?')) {
+                                await supabase.from('contrapartes').delete().eq('id', t.id);
+                                setTrabajadores(prev => prev.filter(x => x.id !== t.id));
+                                setContrapartes(prev => prev.filter(x => x.id !== t.id));
+                              }
+                            }} className="px-2 py-1.5 rounded-lg text-[11px] font-semibold hover:bg-red-50" style={{ color: '#EF4444', border: '1px solid #FCA5A5' }}>✕</button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : !showNuevoTrabajador && (
+                <div className="text-center py-16 rounded-2xl" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.05)' }}>
+                  <div className="text-4xl mb-3">👷</div>
+                  <h3 className="font-bold text-[15px] mb-1" style={{ color: '#18181B' }}>No tienes trabajadores registrados</h3>
+                  <p className="text-[13px] mb-4" style={{ color: '#71717A' }}>Registra tus empleados para generar declaraciones SAGRILAFT y gestionar renovaciones anuales.</p>
+                  <button onClick={() => setShowNuevoTrabajador(true)} className="px-5 py-2 rounded-xl text-[13px] font-bold text-white" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>+ Registrar primer trabajador</button>
                 </div>
               )}
             </div>
