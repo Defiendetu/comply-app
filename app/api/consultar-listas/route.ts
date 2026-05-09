@@ -246,7 +246,7 @@ async function consultarProcuraduria(identificacion: string, apifyToken?: string
 
   try {
     const runResp = await fetch(
-      `https://api.apify.com/v2/acts/comply~procuraduria-scraper/runs?token=${apifyToken}`,
+      `https://api.apify.com/v2/acts/daytool_colombia~comply-app/runs?token=${apifyToken}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -339,7 +339,7 @@ async function consultarContraloria(identificacion: string, apifyToken?: string)
 
   try {
     const runResp = await fetch(
-      `https://api.apify.com/v2/acts/comply~contraloria-scraper/runs?token=${apifyToken}`,
+      `https://api.apify.com/v2/acts/daytool_colombia~contraloria-scraper/runs?token=${apifyToken}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -416,7 +416,8 @@ async function consultarContraloria(identificacion: string, apifyToken?: string)
 // ==========================================
 export async function POST(request: NextRequest) {
   try {
-    const { nombre, identificacion, apify_token } = await request.json();
+    const { nombre, identificacion } = await request.json();
+    const apifyToken = process.env.APIFY_TOKEN || '';
 
     if (!nombre || nombre.length < 2) {
       return NextResponse.json({ success: false, error: 'Nombre requerido' }, { status: 400 });
@@ -426,8 +427,8 @@ export async function POST(request: NextRequest) {
       consultarOFAC(nombre, identificacion),
       consultarONU(nombre),
       consultarPEPs(nombre, identificacion),
-      consultarProcuraduria(identificacion, apify_token),
-      consultarContraloria(identificacion, apify_token),
+      consultarProcuraduria(identificacion, apifyToken),
+      consultarContraloria(identificacion, apifyToken),
     ]);
 
     const totalCoincidencias = resultados.reduce((sum, r) => sum + r.coincidencias.length, 0);
