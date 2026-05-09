@@ -59,7 +59,7 @@ export default function LandingPage() {
           </div>
           <div className="flex items-center gap-3">
             <Link href="/login" className="text-[13px] font-medium" style={{ color: '#666' }}>Ingresar</Link>
-            <Link href="/solicitar" className="px-4 py-2 rounded-lg text-[13px] font-semibold text-white" style={{ background: '#111' }}>Solicitar acceso</Link>
+            <Link href="/login?mode=register" className="px-4 py-2 rounded-lg text-[13px] font-semibold text-white" style={{ background: '#111' }}>Crear cuenta</Link>
           </div>
         </div>
       </nav>
@@ -289,8 +289,8 @@ export default function LandingPage() {
               Únete a las empresas que están automatizando su SAGRILAFT con inteligencia artificial.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link href="/solicitar" className="px-7 py-3.5 rounded-lg text-[14px] font-semibold text-black transition-all hover:opacity-90" style={{ background: '#fff' }}>
-                Solicitar acceso gratuito
+              <Link href="/login?mode=register" className="px-7 py-3.5 rounded-lg text-[14px] font-semibold text-black transition-all hover:opacity-90" style={{ background: '#fff' }}>
+                Crear cuenta gratis
               </Link>
               <Link href="/login" className="px-7 py-3.5 rounded-lg text-[14px] font-medium transition-all" style={{ color: '#999', border: '1px solid rgba(255,255,255,0.15)' }}>
                 Ya tengo cuenta
