@@ -3,8 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Comply - Cumplimiento SAGRILAFT Automatizado",
-  description: "Genera tu Manual de Medidas Mínimas y Matriz de Riesgo LA/FT/FPADM en minutos. Cumplimiento con la Superintendencia de Sociedades simplificado.",
-  keywords: ["SAGRILAFT", "LA/FT/FPADM", "cumplimiento", "Superintendencia de Sociedades", "medidas mínimas", "matriz de riesgo"],
+  description: "Genera tu Manual de Medidas Minimas y Matriz de Riesgo LA/FT/FPADM en minutos. Cumplimiento con la Superintendencia de Sociedades simplificado.",
+  keywords: ["SAGRILAFT", "LA/FT/FPADM", "cumplimiento", "Superintendencia de Sociedades", "medidas minimas", "matriz de riesgo"],
 };
 
 export default function RootLayout({

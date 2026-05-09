@@ -42,7 +42,6 @@ export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
 
-  // Supabase data
   const [empresaGuardada, setEmpresaGuardada] = useState<EmpresaData | null>(null);
   const [historialDocumentos, setHistorialDocumentos] = useState<DocumentoHistorial[]>([]);
 
@@ -58,17 +57,14 @@ export default function DashboardPage() {
     tieneOficialCumplimiento: '', realizaDebidaDiligencia: '',
     consultaListasRestrictivas: '', tieneProcedimientoROS: '', capacitaPersonal: '',
   });
-  // Document selection
   const [selectedDocs, setSelectedDocs] = useState<string[]>(['manual', 'matriz', 'fcc']);
 
-  // Contrapartes
   const [contrapartes, setContrapartes] = useState<any[]>([]);
   const [showNuevaContraparte, setShowNuevaContraparte] = useState(false);
   const [contraparteForm, setContraparteForm] = useState({ tipo_persona: 'juridica', tipo_relacion: 'cliente', razon_social: '', nit_cc: '', representante_legal: '', ciudad: '', certificadoBase64: '', certificadoNombre: '' });
   const [loadingContraparte, setLoadingContraparte] = useState(false);
   const contraparteFileRef = useRef<HTMLInputElement>(null);
 
-  // Trabajadores
   const [trabajadores, setTrabajadores] = useState<any[]>([]);
   const [showNuevoTrabajador, setShowNuevoTrabajador] = useState(false);
   const [trabajadorForm, setTrabajadorForm] = useState({ nombre: '', cedula: '', cargo: '', area: '', fecha_ingreso: '', contratoBase64: '', contratoNombre: '' });
@@ -79,12 +75,12 @@ export default function DashboardPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadingMessages = [
-    { icon: '📄', text: 'Recibimos tu certificado...', sub: 'Preparando el análisis' },
-    { icon: '🔍', text: 'Extrayendo datos de tu empresa...', sub: 'Razón social, NIT, objeto social' },
+    { icon: '📄', text: 'Recibimos tu certificado...', sub: 'Preparando el analisis' },
+    { icon: '🔍', text: 'Extrayendo datos de tu empresa...', sub: 'Razon social, NIT, objeto social' },
     { icon: '🧠', text: 'Analizando riesgos de tu sector...', sub: 'Evaluando factores LA/FT/FPADM' },
     { icon: '📊', text: 'Construyendo la matriz de riesgo...', sub: 'Probabilidades e impactos' },
-    { icon: '⚖️', text: 'Generando señales de alerta...', sub: 'Controles específicos' },
-    { icon: '📋', text: 'Redactando tu Manual...', sub: 'Personalizando cada sección' },
+    { icon: '⚖️', text: 'Generando senales de alerta...', sub: 'Controles especificos' },
+    { icon: '📋', text: 'Redactando tu Manual...', sub: 'Personalizando cada seccion' },
     { icon: '✨', text: 'Formato profesional...', sub: 'Ya casi terminamos' },
     { icon: '🔒', text: 'Finalizando...', sub: 'Empaquetando todo para ti' },
   ];
@@ -96,140 +92,58 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [loading]);
 
-  // Auth check + load empresa data from Supabase
   useEffect(() => {
     const s = localStorage.getItem('complyUser');
     if (s) {
       const u = JSON.parse(s);
-      if (u.loggedIn) {
-        setUser(u);
-        loadEmpresaData(u.email);
-      } else { router.push('/login'); }
+      if (u.loggedIn) { setUser(u); loadEmpresaData(u.email); }
+      else { router.push('/login'); }
     } else { router.push('/login'); }
   }, [router]);
 
-  // Load empresa and document history from Supabase
   async function loadEmpresaData(email: string) {
     setLoadingData(true);
     try {
-      const { data: empresas } = await supabase
-        .from('empresas')
-        .select('*')
-        .eq('user_email', email)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
+      const { data: empresas } = await supabase.from('empresas').select('*').eq('user_email', email).order('created_at', { ascending: false }).limit(1);
       if (empresas && empresas.length > 0) {
         setEmpresaGuardada(empresas[0]);
-        const { data: docs } = await supabase
-          .from('documentos')
-          .select('*')
-          .eq('empresa_id', empresas[0].id)
-          .order('created_at', { ascending: false })
-          .limit(20);
+        const { data: docs } = await supabase.from('documentos').select('*').eq('empresa_id', empresas[0].id).order('created_at', { ascending: false }).limit(20);
         if (docs) setHistorialDocumentos(docs);
-
-        // Load contrapartes
-        const { data: contras } = await supabase
-          .from('contrapartes')
-          .select('*')
-          .eq('empresa_id', empresas[0].id)
-          .order('created_at', { ascending: false });
-        if (contras) {
-          setContrapartes(contras);
-          setTrabajadores(contras.filter((c: any) => c.tipo_relacion === 'empleado'));
-        }
+        const { data: contras } = await supabase.from('contrapartes').select('*').eq('empresa_id', empresas[0].id).order('created_at', { ascending: false });
+        if (contras) { setContrapartes(contras); setTrabajadores(contras.filter((c: any) => c.tipo_relacion === 'empleado')); }
       }
-    } catch (err) {
-      console.error('Error loading data:', err);
-    } finally {
-      setLoadingData(false);
-    }
+    } catch (err) { console.error('Error loading data:', err); }
+    finally { setLoadingData(false); }
   }
 
-  // Save empresa to Supabase
   async function saveEmpresa(data: any, email: string) {
     try {
-      // Check if empresa already exists for this user
-      const { data: existing } = await supabase
-        .from('empresas')
-        .select('id')
-        .eq('user_email', email)
-        .eq('nit', data.nit)
-        .limit(1);
-
+      const { data: existing } = await supabase.from('empresas').select('id').eq('user_email', email).eq('nit', data.nit).limit(1);
       if (existing && existing.length > 0) {
-        // Update existing
-        const { data: updated } = await supabase
-          .from('empresas')
-          .update({
-            razon_social: data.empresa,
-            razon_social_corto: data.empresaCorto || data.empresa,
-            representante_legal: data.representante,
-            tipo_sociedad: data.tipoSociedad,
-            cedula_rep_legal: data.cedulaRep,
-            ciudad: data.ciudad,
-            sector_nombre: data.sectorNombre,
-            codigo_ciiu: data.codigoCiiu,
-            perfil_riesgo: data.perfilRiesgo,
-          })
-          .eq('id', existing[0].id)
-          .select()
-          .single();
+        const { data: updated } = await supabase.from('empresas').update({ razon_social: data.empresa, razon_social_corto: data.empresaCorto || data.empresa, representante_legal: data.representante, tipo_sociedad: data.tipoSociedad, cedula_rep_legal: data.cedulaRep, ciudad: data.ciudad, sector_nombre: data.sectorNombre, codigo_ciiu: data.codigoCiiu, perfil_riesgo: data.perfilRiesgo }).eq('id', existing[0].id).select().single();
         if (updated) setEmpresaGuardada(updated);
         return existing[0].id;
       } else {
-        // Insert new
-        const { data: inserted } = await supabase
-          .from('empresas')
-          .insert({
-            user_email: email,
-            razon_social: data.empresa,
-            razon_social_corto: data.empresaCorto || data.empresa,
-            nit: data.nit,
-            representante_legal: data.representante,
-            tipo_sociedad: data.tipoSociedad || '',
-            cedula_rep_legal: data.cedulaRep || '',
-            ciudad: data.ciudad || '',
-            sector_nombre: data.sectorNombre || '',
-            codigo_ciiu: data.codigoCiiu || '',
-            perfil_riesgo: data.perfilRiesgo || 'MEDIO',
-          })
-          .select()
-          .single();
+        const { data: inserted } = await supabase.from('empresas').insert({ user_email: email, razon_social: data.empresa, razon_social_corto: data.empresaCorto || data.empresa, nit: data.nit, representante_legal: data.representante, tipo_sociedad: data.tipoSociedad || '', cedula_rep_legal: data.cedulaRep || '', ciudad: data.ciudad || '', sector_nombre: data.sectorNombre || '', codigo_ciiu: data.codigoCiiu || '', perfil_riesgo: data.perfilRiesgo || 'MEDIO' }).select().single();
         if (inserted) setEmpresaGuardada(inserted);
         return inserted?.id;
       }
-    } catch (err) {
-      console.error('Error saving empresa:', err);
-      return null;
-    }
+    } catch (err) { console.error('Error saving empresa:', err); return null; }
   }
 
-  // Save document to Supabase
   async function saveDocumento(empresaId: string, tipo: string, nombre: string, base64: string) {
     try {
-      const { data } = await supabase
-        .from('documentos')
-        .insert({ empresa_id: empresaId, tipo, nombre_archivo: nombre, base64 })
-        .select()
-        .single();
+      const { data } = await supabase.from('documentos').insert({ empresa_id: empresaId, tipo, nombre_archivo: nombre, base64 }).select().single();
       if (data) setHistorialDocumentos(prev => [data, ...prev]);
       return data;
-    } catch (err) {
-      console.error('Error saving documento:', err);
-      return null;
-    }
+    } catch (err) { console.error('Error saving documento:', err); return null; }
   }
 
-  // Log activity
   async function logActivity(empresaId: string, email: string, accion: string, detalle?: string) {
-    try {
-      await supabase.from('actividad').insert({ empresa_id: empresaId, user_email: email, accion, detalle });
-    } catch (err) { console.error('Error logging activity:', err); }
+    try { await supabase.from('actividad').insert({ empresa_id: empresaId, user_email: email, accion, detalle }); }
+    catch (err) { console.error('Error logging activity:', err); }
   }
 
-  // Handle contraparte certificate upload
   const handleContraparteCertificado = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     if (file.type !== 'application/pdf') { setError('Solo archivos PDF'); return; }
@@ -238,105 +152,38 @@ export default function DashboardPage() {
     reader.readAsDataURL(file);
   };
 
-  // Save new contraparte
   const handleSaveContraparte = async () => {
     if (!contraparteForm.razon_social && !contraparteForm.certificadoBase64) { setError('Ingresa el nombre o sube un certificado'); return; }
     if (!empresaGuardada) { setError('Primero registra tu empresa'); return; }
     setLoadingContraparte(true); setError('');
     try {
       let finalData: any = { ...contraparteForm };
-
-      // If certificate uploaded, extract data via n8n
       if (contraparteForm.certificadoBase64) {
         try {
-          const resp = await fetch('https://defiendetetu.app.n8n.cloud/webhook/extraer-contraparte', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              certificadoBase64: contraparteForm.certificadoBase64,
-            }),
-          });
+          const resp = await fetch('https://defiendetetu.app.n8n.cloud/webhook/extraer-contraparte', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ certificadoBase64: contraparteForm.certificadoBase64 }) });
           const result = await resp.json();
-          if (result.success && result.datosExtraidos && result.contraparte) {
-            finalData = { ...finalData, ...result.contraparte, datos_extraidos: true };
-          } else {
-            setError('La IA no pudo extraer los datos. ' + (result.error || 'Registra manualmente.'));
-            setContraparteForm(p => ({ ...p, certificadoBase64: '', certificadoNombre: '' }));
-            setLoadingContraparte(false);
-            return;
-          }
-        } catch (fetchErr) {
-          setError('Error de conexión con n8n. Intenta de nuevo.');
-          setLoadingContraparte(false);
-          return;
-        }
+          if (result.success && result.datosExtraidos && result.contraparte) { finalData = { ...finalData, ...result.contraparte, datos_extraidos: true }; }
+          else { setError('La IA no pudo extraer los datos. ' + (result.error || 'Registra manualmente.')); setContraparteForm(p => ({ ...p, certificadoBase64: '', certificadoNombre: '' })); setLoadingContraparte(false); return; }
+        } catch (fetchErr) { setError('Error de conexion con n8n. Intenta de nuevo.'); setLoadingContraparte(false); return; }
       }
-
-      // Save to Supabase
-      const { data: saved, error: dbError } = await supabase.from('contrapartes').insert({
-        empresa_id: empresaGuardada.id,
-        tipo_persona: finalData.tipo_persona || 'juridica',
-        tipo_relacion: finalData.tipo_relacion || 'cliente',
-        razon_social: finalData.razon_social || '',
-        nit_cc: finalData.nit_cc || finalData.nit || '',
-        representante_legal: finalData.representante_legal || '',
-        ciudad: finalData.ciudad || '',
-        estado: 'activo',
-        datos_extraidos: finalData.datos_extraidos ? finalData : null,
-      }).select().single();
-
+      const { data: saved, error: dbError } = await supabase.from('contrapartes').insert({ empresa_id: empresaGuardada.id, tipo_persona: finalData.tipo_persona || 'juridica', tipo_relacion: finalData.tipo_relacion || 'cliente', razon_social: finalData.razon_social || '', nit_cc: finalData.nit_cc || finalData.nit || '', representante_legal: finalData.representante_legal || '', ciudad: finalData.ciudad || '', estado: 'activo', datos_extraidos: finalData.datos_extraidos ? finalData : null }).select().single();
       if (dbError) { setError('Error guardando: ' + dbError.message); setLoadingContraparte(false); return; }
-
-      if (saved) {
-        setContrapartes(prev => [saved, ...prev]);
-        setShowNuevaContraparte(false);
-        setContraparteForm({ tipo_persona: 'juridica', tipo_relacion: 'cliente', razon_social: '', nit_cc: '', representante_legal: '', ciudad: '', certificadoBase64: '', certificadoNombre: '' });
-        if (user) await logActivity(empresaGuardada.id, user.email, 'registrar_contraparte', `Contraparte: ${saved.razon_social}`);
-      }
+      if (saved) { setContrapartes(prev => [saved, ...prev]); setShowNuevaContraparte(false); setContraparteForm({ tipo_persona: 'juridica', tipo_relacion: 'cliente', razon_social: '', nit_cc: '', representante_legal: '', ciudad: '', certificadoBase64: '', certificadoNombre: '' }); if (user) await logActivity(empresaGuardada.id, user.email, 'registrar_contraparte', `Contraparte: ${saved.razon_social}`); }
     } catch (err) { setError(err instanceof Error ? err.message : 'Error al guardar contraparte'); }
     finally { setLoadingContraparte(false); }
   };
 
-  // Generate FCC for a specific contraparte
   const handleGenerarFCCContraparte = async (contraparte: any) => {
     if (!empresaGuardada) return;
     try {
-      // Merge datos_extraidos with top-level fields for complete data
-      const cpData = {
-        ...contraparte,
-        ...(contraparte.datos_extraidos || {}),
-        razon_social: contraparte.razon_social || contraparte.datos_extraidos?.razon_social || '',
-        nit_cc: contraparte.nit_cc || contraparte.datos_extraidos?.nit_cc || contraparte.datos_extraidos?.nit || '',
-        representante_legal: contraparte.representante_legal || contraparte.datos_extraidos?.representante_legal || '',
-        ciudad: contraparte.ciudad || contraparte.datos_extraidos?.ciudad || '',
-        direccion: contraparte.datos_extraidos?.direccion || '',
-        objeto_social: contraparte.datos_extraidos?.objeto_social || '',
-        cedula_rep_legal: contraparte.datos_extraidos?.cedula_rep_legal || '',
-      };
-
-      const resp = await fetch('/api/generar-fcc', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          RAZON_SOCIAL: empresaGuardada.razon_social,
-          NIT: empresaGuardada.nit,
-          REPRESENTANTE_LEGAL: empresaGuardada.representante_legal,
-          CIUDAD: empresaGuardada.ciudad,
-          DIRECCION: (empresaGuardada as any).direccion || '',
-          CONTRAPARTE: cpData,
-        }),
-      });
+      const cpData = { ...contraparte, ...(contraparte.datos_extraidos || {}), razon_social: contraparte.razon_social || contraparte.datos_extraidos?.razon_social || '', nit_cc: contraparte.nit_cc || contraparte.datos_extraidos?.nit_cc || contraparte.datos_extraidos?.nit || '', representante_legal: contraparte.representante_legal || contraparte.datos_extraidos?.representante_legal || '', ciudad: contraparte.ciudad || contraparte.datos_extraidos?.ciudad || '', direccion: contraparte.datos_extraidos?.direccion || '', objeto_social: contraparte.datos_extraidos?.objeto_social || '', cedula_rep_legal: contraparte.datos_extraidos?.cedula_rep_legal || '' };
+      const resp = await fetch('/api/generar-fcc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, DIRECCION: (empresaGuardada as any).direccion || '', CONTRAPARTE: cpData }) });
       const result = await resp.json();
-      if (result.success && result.base64) {
-        dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        await saveDocumento(empresaGuardada.id, 'fcc', result.filename, result.base64);
-      } else {
-        setError('Error generando FCC: ' + (result.error || 'intenta de nuevo'));
-      }
-    } catch (err) { console.error('Error generating FCC:', err); setError('Error de conexión al generar FCC'); }
+      if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); await saveDocumento(empresaGuardada.id, 'fcc', result.filename, result.base64); }
+      else { setError('Error generando FCC: ' + (result.error || 'intenta de nuevo')); }
+    } catch (err) { console.error('Error generating FCC:', err); setError('Error de conexion al generar FCC'); }
   };
 
-  // Handle contract upload for worker
   const handleContratoTrabajador = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     if (file.type !== 'application/pdf') { setError('Solo archivos PDF'); return; }
@@ -344,127 +191,63 @@ export default function DashboardPage() {
     reader.onload = async () => {
       const b = (reader.result as string).split(',')[1];
       setTrabajadorForm(p => ({ ...p, contratoBase64: b, contratoNombre: file.name }));
-      // Auto-extract
       setLoadingExtraccion(true); setError('');
       try {
-        const resp = await fetch('/api/extraer-trabajador', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contratoBase64: b }),
-        });
+        const resp = await fetch('/api/extraer-trabajador', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contratoBase64: b }) });
         const result = await resp.json();
-        if (result.success && result.trabajador) {
-          const t = result.trabajador;
-          setTrabajadorForm(p => ({
-            ...p,
-            nombre: t.nombre || p.nombre,
-            cedula: t.cedula || p.cedula,
-            cargo: t.cargo || p.cargo,
-            area: t.area || p.area,
-            fecha_ingreso: t.fecha_ingreso || p.fecha_ingreso,
-          }));
-        } else {
-          setError('No se pudieron extraer datos. Completa manualmente.');
-        }
-      } catch { setError('Error de conexión. Completa manualmente.'); }
+        if (result.success && result.trabajador) { const t = result.trabajador; setTrabajadorForm(p => ({ ...p, nombre: t.nombre || p.nombre, cedula: t.cedula || p.cedula, cargo: t.cargo || p.cargo, area: t.area || p.area, fecha_ingreso: t.fecha_ingreso || p.fecha_ingreso })); }
+        else { setError('No se pudieron extraer datos. Completa manualmente.'); }
+      } catch { setError('Error de conexion. Completa manualmente.'); }
       finally { setLoadingExtraccion(false); }
     };
     reader.readAsDataURL(file);
   };
 
-  // Save new worker (as contraparte tipo_relacion=empleado)
   const handleSaveTrabajador = async () => {
     if (!trabajadorForm.nombre) { setError('Ingresa el nombre del trabajador'); return; }
     if (!empresaGuardada) { setError('Primero registra tu empresa'); return; }
     setError('');
     try {
-      const datosExtra = {
-        cargo: trabajadorForm.cargo,
-        area: trabajadorForm.area,
-        fecha_ingreso: trabajadorForm.fecha_ingreso,
-        fecha_ultima_declaracion: null,
-        capacitado: false,
-        fecha_capacitacion: null,
-      };
-      const { data: saved, error: dbError } = await supabase.from('contrapartes').insert({
-        empresa_id: empresaGuardada.id,
-        tipo_persona: 'natural',
-        tipo_relacion: 'empleado',
-        razon_social: trabajadorForm.nombre,
-        nit_cc: trabajadorForm.cedula,
-        estado: 'activo',
-        datos_extraidos: datosExtra,
-      }).select().single();
+      const datosExtra = { cargo: trabajadorForm.cargo, area: trabajadorForm.area, fecha_ingreso: trabajadorForm.fecha_ingreso, fecha_ultima_declaracion: null, capacitado: false, fecha_capacitacion: null };
+      const { data: saved, error: dbError } = await supabase.from('contrapartes').insert({ empresa_id: empresaGuardada.id, tipo_persona: 'natural', tipo_relacion: 'empleado', razon_social: trabajadorForm.nombre, nit_cc: trabajadorForm.cedula, estado: 'activo', datos_extraidos: datosExtra }).select().single();
       if (dbError) { setError('Error guardando: ' + dbError.message); return; }
-      if (saved) {
-        setTrabajadores(prev => [saved, ...prev]);
-        setContrapartes(prev => [saved, ...prev]);
-        setShowNuevoTrabajador(false);
-        setTrabajadorForm({ nombre: '', cedula: '', cargo: '', area: '', fecha_ingreso: '', contratoBase64: '', contratoNombre: '' });
-        if (user) await logActivity(empresaGuardada.id, user.email, 'registrar_trabajador', `Trabajador: ${saved.razon_social}`);
-      }
+      if (saved) { setTrabajadores(prev => [saved, ...prev]); setContrapartes(prev => [saved, ...prev]); setShowNuevoTrabajador(false); setTrabajadorForm({ nombre: '', cedula: '', cargo: '', area: '', fecha_ingreso: '', contratoBase64: '', contratoNombre: '' }); if (user) await logActivity(empresaGuardada.id, user.email, 'registrar_trabajador', `Trabajador: ${saved.razon_social}`); }
     } catch (err) { setError(err instanceof Error ? err.message : 'Error al guardar'); }
   };
 
-  // Generate declaration for a worker
   const handleGenerarDeclaracion = async (trabajador: any) => {
     if (!empresaGuardada) return;
     setLoadingDeclaracion(trabajador.id);
     try {
-      const resp = await fetch('/api/generar-declaracion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          RAZON_SOCIAL: empresaGuardada.razon_social,
-          NIT: empresaGuardada.nit,
-          REPRESENTANTE_LEGAL: empresaGuardada.representante_legal,
-          CIUDAD: empresaGuardada.ciudad,
-          SIGLAS: empresaGuardada.razon_social?.split(' ').filter((p: string) => p.length > 1).map((p: string) => p[0]).join('').substring(0, 4).toUpperCase(),
-          TRABAJADOR: {
-            nombre: trabajador.razon_social,
-            cedula: trabajador.nit_cc,
-            cargo: trabajador.datos_extraidos?.cargo || '',
-            area: trabajador.datos_extraidos?.area || '',
-          },
-        }),
-      });
+      const resp = await fetch('/api/generar-declaracion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, SIGLAS: empresaGuardada.razon_social?.split(' ').filter((p: string) => p.length > 1).map((p: string) => p[0]).join('').substring(0, 4).toUpperCase(), TRABAJADOR: { nombre: trabajador.razon_social, cedula: trabajador.nit_cc, cargo: trabajador.datos_extraidos?.cargo || '', area: trabajador.datos_extraidos?.area || '' } }) });
       const result = await resp.json();
       if (result.success && result.base64) {
         dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         await saveDocumento(empresaGuardada.id, 'declaracion_trabajadores', result.filename, result.base64);
-        // Update fecha_ultima_declaracion
         const now = new Date().toISOString();
         const updatedDatos = { ...(trabajador.datos_extraidos || {}), fecha_ultima_declaracion: now };
         await supabase.from('contrapartes').update({ datos_extraidos: updatedDatos }).eq('id', trabajador.id);
         setTrabajadores(prev => prev.map(t => t.id === trabajador.id ? { ...t, datos_extraidos: updatedDatos } : t));
-      } else {
-        setError('Error generando declaración: ' + (result.error || 'intenta de nuevo'));
-      }
-    } catch (err) { setError('Error de conexión al generar declaración'); }
+      } else { setError('Error generando declaracion: ' + (result.error || 'intenta de nuevo')); }
+    } catch (err) { setError('Error de conexion al generar declaracion'); }
     finally { setLoadingDeclaracion(null); }
   };
 
-  // Toggle training status
   const handleToggleCapacitacion = async (trabajador: any) => {
     const wasCapacitado = trabajador.datos_extraidos?.capacitado;
-    const updatedDatos = {
-      ...(trabajador.datos_extraidos || {}),
-      capacitado: !wasCapacitado,
-      fecha_capacitacion: !wasCapacitado ? new Date().toISOString() : null,
-    };
+    const updatedDatos = { ...(trabajador.datos_extraidos || {}), capacitado: !wasCapacitado, fecha_capacitacion: !wasCapacitado ? new Date().toISOString() : null };
     await supabase.from('contrapartes').update({ datos_extraidos: updatedDatos }).eq('id', trabajador.id);
     setTrabajadores(prev => prev.map(t => t.id === trabajador.id ? { ...t, datos_extraidos: updatedDatos } : t));
   };
 
-  // Declaration status helper
   const getDeclaracionStatus = (trabajador: any) => {
     const fechaDecl = trabajador.datos_extraidos?.fecha_ultima_declaracion;
-    if (!fechaDecl) return { status: 'pendiente', color: '#EF4444', bg: '#FEF2F2', label: 'Sin declaración' };
+    if (!fechaDecl) return { status: 'pendiente', color: '#DC2626', bg: '#FEF2F2', label: 'Sin declaracion' };
     const fecha = new Date(fechaDecl);
     const now = new Date();
     const diffDays = Math.floor((now.getTime() - fecha.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays > 365) return { status: 'vencida', color: '#EF4444', bg: '#FEF2F2', label: 'Vencida' };
-    if (diffDays > 335) return { status: 'por_vencer', color: '#F59E0B', bg: '#FFFBEB', label: `Vence en ${365 - diffDays}d` };
+    if (diffDays > 365) return { status: 'vencida', color: '#DC2626', bg: '#FEF2F2', label: 'Vencida' };
+    if (diffDays > 335) return { status: 'por_vencer', color: '#D97706', bg: '#FFFBEB', label: `Vence en ${365 - diffDays}d` };
     return { status: 'vigente', color: '#059669', bg: '#ECFDF5', label: 'Vigente' };
   };
 
@@ -472,7 +255,7 @@ export default function DashboardPage() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     if (file.type !== 'application/pdf') { setError('Solo archivos PDF'); return; }
-    if (file.size > 10 * 1024 * 1024) { setError('Máximo 10MB'); return; }
+    if (file.size > 10 * 1024 * 1024) { setError('Maximo 10MB'); return; }
     setError('');
     const reader = new FileReader();
     reader.onload = () => { const b = (reader.result as string).split(',')[1]; setFormData(p => ({ ...p, certificadoBase64: b, certificadoNombre: file.name })); };
@@ -481,28 +264,18 @@ export default function DashboardPage() {
   const handleCanalesChange = (c: string) => { setFormData(p => ({ ...p, canales: p.canales.includes(c) ? p.canales.filter(x => x !== c) : [...p.canales, c] })); };
 
   const handleSubmit = async () => {
-    if (!formData.certificadoBase64) { setError('Sube el Certificado de Cámara de Comercio'); return; }
+    if (!formData.certificadoBase64) { setError('Sube el Certificado de Camara de Comercio'); return; }
     if (!formData.manejaEfectivo) { setError('Indica si manejas efectivo'); return; }
     if (!formData.operaExtranjeros) { setError('Indica si operas con extranjeros'); return; }
     if (formData.canales.length === 0) { setError('Selecciona al menos un canal'); return; }
     setLoading(true); setError('');
     try {
-      const r = await fetch('https://defiendetetu.app.n8n.cloud/webhook/generar-documentos', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ certificadoBase64: formData.certificadoBase64, manejaEfectivo: formData.manejaEfectivo, operaExtranjeros: formData.operaExtranjeros, canales: formData.canales.join(', '), tieneOficialCumplimiento: formData.tieneOficialCumplimiento || 'no', realizaDebidaDiligencia: formData.realizaDebidaDiligencia || 'no', consultaListasRestrictivas: formData.consultaListasRestrictivas || 'no', tieneProcedimientoROS: formData.tieneProcedimientoROS || 'no', capacitaPersonal: formData.capacitaPersonal || 'no' }),
-      });
+      const r = await fetch('https://defiendetetu.app.n8n.cloud/webhook/generar-documentos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ certificadoBase64: formData.certificadoBase64, manejaEfectivo: formData.manejaEfectivo, operaExtranjeros: formData.operaExtranjeros, canales: formData.canales.join(', '), tieneOficialCumplimiento: formData.tieneOficialCumplimiento || 'no', realizaDebidaDiligencia: formData.realizaDebidaDiligencia || 'no', consultaListasRestrictivas: formData.consultaListasRestrictivas || 'no', tieneProcedimientoROS: formData.tieneProcedimientoROS || 'no', capacitaPersonal: formData.capacitaPersonal || 'no' }) });
       const t = await r.text(); let d; try { d = JSON.parse(t); } catch { throw new Error('Error al procesar respuesta'); }
       if (d.success) {
         setDocumentosGenerados({ manualBase64: d.documentos?.manual?.base64||'', manualNombre: d.documentos?.manual?.nombre||'Manual.docx', matrizBase64: d.documentos?.matriz?.base64||'', matrizNombre: d.documentos?.matriz?.nombre||'Matriz.xlsx', fccBase64: d.documentos?.fcc?.base64||'', fccNombre: d.documentos?.fcc?.nombre||'FCC.xlsx', empresa: d.empresa||'', nit: d.nit||'', representante: d.representante||'' });
-
-        // Save to Supabase
         if (user) {
-          const empresaId = await saveEmpresa({
-            empresa: d.empresa, nit: d.nit, representante: d.representante,
-            empresaCorto: d.empresa, sectorNombre: d.documentos?.matriz?.sector || '',
-            codigoCiiu: d.documentos?.matriz?.ciiu || '', perfilRiesgo: d.documentos?.matriz?.perfil || 'MEDIO',
-          }, user.email);
-
+          const empresaId = await saveEmpresa({ empresa: d.empresa, nit: d.nit, representante: d.representante, empresaCorto: d.empresa, sectorNombre: d.documentos?.matriz?.sector || '', codigoCiiu: d.documentos?.matriz?.ciiu || '', perfilRiesgo: d.documentos?.matriz?.perfil || 'MEDIO' }, user.email);
           if (empresaId) {
             if (d.documentos?.manual?.base64) await saveDocumento(empresaId, 'manual', d.documentos.manual.nombre, d.documentos.manual.base64);
             if (d.documentos?.matriz?.base64) await saveDocumento(empresaId, 'matriz', d.documentos.matriz.nombre, d.documentos.matriz.base64);
@@ -512,14 +285,13 @@ export default function DashboardPage() {
         }
         setStep(3);
       } else { setError(d.error || 'Error al generar documentos'); }
-    } catch (err) { setError(err instanceof Error ? err.message : 'Error de conexión'); } finally { setLoading(false); }
+    } catch (err) { setError(err instanceof Error ? err.message : 'Error de conexion'); } finally { setLoading(false); }
   };
 
   const dl = (b64: string, fn: string, mime: string) => { const bc = atob(b64); const bn = new Array(bc.length); for (let i=0;i<bc.length;i++) bn[i]=bc.charCodeAt(i); const blob = new Blob([new Uint8Array(bn)],{type:mime}); const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=fn; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); };
-
   const getMimeForType = (tipo: string) => tipo === 'manual' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  const getDocLabel = (tipo: string) => ({ manual: 'Manual de Medidas Mínimas', matriz: 'Matriz de Riesgo', fcc: 'Formulario FCC', fer: 'Evaluación de Riesgos', reporte_eventos: 'Reporte de Eventos', declaracion_trabajadores: 'Declaración Trabajadores', listas_restrictivas: 'Listas Restrictivas' }[tipo] || tipo);
-  const getDocColor = (tipo: string) => ({ manual: '#6366F1', matriz: '#10B981', fcc: '#8B5CF6', fer: '#F59E0B', reporte_eventos: '#EF4444' }[tipo] || '#6366F1');
+  const getDocLabel = (tipo: string) => ({ manual: 'Manual de Medidas Minimas', matriz: 'Matriz de Riesgo', fcc: 'Formulario FCC', fer: 'Evaluacion de Riesgos', reporte_eventos: 'Reporte de Eventos', declaracion_trabajadores: 'Declaracion Trabajadores', listas_restrictivas: 'Listas Restrictivas' }[tipo] || tipo);
+  const getDocColor = (tipo: string) => ({ manual: '#2563EB', matriz: '#059669', fcc: '#7C3AED', fer: '#D97706', reporte_eventos: '#DC2626' }[tipo] || '#2563EB');
   const getDocExt = (tipo: string) => tipo === 'manual' ? 'DOCX' : 'XLSX';
 
   if (!user) return null;
@@ -528,197 +300,209 @@ export default function DashboardPage() {
     { id: 'home' as ActiveView, label: 'Inicio', svg: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
     { id: 'documentos' as ActiveView, label: 'Documentos', svg: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
     { id: 'contrapartes' as ActiveView, label: 'Contrapartes', svg: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
-    { id: 'trabajadores' as ActiveView, label: 'Trabajadores', svg: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', badge: 'Nuevo' },
+    { id: 'trabajadores' as ActiveView, label: 'Trabajadores', svg: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
     { id: 'agentes' as ActiveView, label: 'AI Agents', svg: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z', badge: 'Nuevo' },
-    { id: 'matriz' as ActiveView, label: 'Matriz', svg: 'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7', badge: 'Próximo', disabled: true },
-    { id: 'reportes' as ActiveView, label: 'Reportes', svg: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', badge: 'Próximo', disabled: true },
+    { id: 'matriz' as ActiveView, label: 'Matriz', svg: 'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7', badge: 'Proximo', disabled: true },
+    { id: 'reportes' as ActiveView, label: 'Reportes', svg: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', badge: 'Proximo', disabled: true },
   ];
 
+  // Shared component styles
+  const cardStyle = { background: '#fff', border: '1px solid #EBEBEB' };
+  const btnPrimary = { background: '#111', color: '#fff' };
+  const btnSecondary = { border: '1px solid #E0E0E0', color: '#555' };
+
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: '#09090B' }}>
+    <div className="flex h-screen overflow-hidden" style={{ background: '#F7F7F7' }}>
       <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
-        * { font-family: 'Outfit', system-ui, sans-serif; }
-        .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.06); }
-        .card-lift { transition: all 0.4s cubic-bezier(0.4,0,0.2,1); }
-        .card-lift:hover { transform: translateY(-4px); box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-        .fu { animation: fadeUp 0.8s ease-out forwards; }
-        .fu1 { animation-delay: 0.1s; opacity: 0; }
-        .fu2 { animation-delay: 0.2s; opacity: 0; }
-        .fu3 { animation-delay: 0.3s; opacity: 0; }
-        .fu4 { animation-delay: 0.4s; opacity: 0; }
-        .float { animation: float 4s ease-in-out infinite; }
-        .mesh-bg { background: radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(168,85,247,0.06) 0%, transparent 50%); }
-        .active-nav { background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(168,85,247,0.1)) !important; border-left: 2px solid #818CF8; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        * { font-family: 'Inter', system-ui, sans-serif; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        .badge-pulse { animation: pulse 2s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
       `}</style>
 
       {/* SIDEBAR */}
-      <aside className={`${sidebarOpen ? 'w-60' : 'w-[72px]'} transition-all duration-300 flex flex-col border-r`} style={{ background: '#0C0C0F', borderColor: 'rgba(255,255,255,0.06)' }}>
-        <div className={`p-4 flex items-center ${sidebarOpen ? 'justify-between' : 'justify-center'} h-16`}>
+      <aside className={`${sidebarOpen ? 'w-56' : 'w-[60px]'} transition-all duration-200 flex flex-col`} style={{ background: '#FAFAFA', borderRight: '1px solid #EBEBEB' }}>
+        <div className={`p-4 flex items-center ${sidebarOpen ? 'justify-between' : 'justify-center'} h-14`}>
           {sidebarOpen ? (
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-black text-xs" style={{ background: 'linear-gradient(135deg, #6366F1, #A855F7)' }}>C</div>
-              <div><div className="text-white font-bold text-[15px] tracking-tight">Comply</div><div className="text-[10px] font-medium tracking-widest" style={{ color: '#525264' }}>SAGRILAFT</div></div>
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-md flex items-center justify-center text-white font-bold text-[11px]" style={{ background: '#111' }}>C</div>
+              <span className="text-[14px] font-semibold" style={{ color: '#111' }}>Comply</span>
             </div>
           ) : (
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-black text-xs" style={{ background: 'linear-gradient(135deg, #6366F1, #A855F7)' }}>C</div>
+            <div className="w-7 h-7 rounded-md flex items-center justify-center text-white font-bold text-[11px]" style={{ background: '#111' }}>C</div>
           )}
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="w-6 h-6 rounded flex items-center justify-center hover:bg-white/5">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="#525264" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sidebarOpen ? 'M11 19l-7-7 7-7m8 14l-7-7 7-7' : 'M13 5l7 7-7 7M5 5l7 7-7 7'} /></svg>
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="w-6 h-6 rounded flex items-center justify-center hover:bg-black/5">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="#999" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sidebarOpen ? 'M11 19l-7-7 7-7m8 14l-7-7 7-7' : 'M13 5l7 7-7 7M5 5l7 7-7 7'} /></svg>
           </button>
         </div>
-        <nav className="flex-1 px-2 mt-2 space-y-0.5">
+
+        <nav className="flex-1 px-2 mt-1 space-y-0.5">
           {nav.map(item => (
             <button key={item.id} onClick={() => !(item as any).disabled && setActiveView(item.id)} disabled={(item as any).disabled}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all ${activeView === item.id ? 'active-nav' : 'hover:bg-white/[0.03]'} ${(item as any).disabled ? 'opacity-30 cursor-not-allowed' : ''}`}>
-              <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" stroke={activeView === item.id ? '#A5B4FC' : '#525264'} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.svg} /></svg>
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all ${(item as any).disabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-black/[0.04]'}`}
+              style={activeView === item.id ? { background: '#111', color: '#fff' } : {}}>
+              <svg className="w-[16px] h-[16px] flex-shrink-0" fill="none" stroke={activeView === item.id ? '#fff' : '#888'} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.svg} /></svg>
               {sidebarOpen && <>
-                <span className="text-[13px] flex-1" style={{ color: activeView === item.id ? '#E0E7FF' : '#71717A' }}>{item.label}</span>
-                {(item as any).badge && <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${(item as any).badge === 'Nuevo' ? 'text-white badge-pulse' : ''}`} style={(item as any).badge === 'Nuevo' ? { background: 'linear-gradient(135deg, #6366F1, #A855F7)' } : { background: 'rgba(255,255,255,0.05)', color: '#525264' }}>{(item as any).badge}</span>}
+                <span className="text-[13px] flex-1" style={{ color: activeView === item.id ? '#fff' : '#555' }}>{item.label}</span>
+                {(item as any).badge && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded font-medium"
+                    style={(item as any).badge === 'Nuevo'
+                      ? { background: activeView === item.id ? 'rgba(255,255,255,0.2)' : '#111', color: '#fff' }
+                      : { background: '#F0F0F0', color: '#999' }
+                    }>{(item as any).badge}</span>
+                )}
               </>}
             </button>
           ))}
         </nav>
-        <div className="p-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+
+        <div className="p-3" style={{ borderTop: '1px solid #EBEBEB' }}>
           <div className={`flex items-center ${sidebarOpen ? 'gap-2.5' : 'justify-center'}`}>
-            <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0" style={{ background: 'linear-gradient(135deg, #334155, #475569)' }}>{user.email[0].toUpperCase()}</div>
-            {sidebarOpen && <div className="flex-1 min-w-0"><div className="text-[12px] text-white/70 truncate">{empresaGuardada?.razon_social || user.empresa || user.email}</div><button onClick={handleLogout} className="text-[11px] text-white/30 hover:text-red-400">Salir</button></div>}
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold text-white flex-shrink-0" style={{ background: '#555' }}>{user.email[0].toUpperCase()}</div>
+            {sidebarOpen && (
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] truncate" style={{ color: '#555' }}>{empresaGuardada?.razon_social || user.email}</div>
+                <button onClick={handleLogout} className="text-[11px] hover:text-red-500" style={{ color: '#BBB' }}>Salir</button>
+              </div>
+            )}
           </div>
         </div>
       </aside>
 
       {/* MAIN */}
-      <main className="flex-1 overflow-y-auto scrollbar-hide mesh-bg" style={{ background: '#FAFAFA' }}>
-        <header className="sticky top-0 z-20 px-8 h-16 flex items-center justify-between" style={{ background: 'rgba(250,250,250,0.8)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
-          <div>
-            <h1 className="text-lg font-bold" style={{ color: '#0F172A' }}>
-              {activeView === 'home' && 'Panel de Control'}{activeView === 'documentos' && 'Generar Documentos'}{activeView === 'agentes' && 'AI Agents'}{activeView === 'contrapartes' && 'Contrapartes'}{activeView === 'trabajadores' && 'Trabajadores'}
-            </h1>
-          </div>
-          <button onClick={() => { setActiveView('documentos'); setStep(empresaGuardada ? 2 : 1); }} className="px-4 py-2 rounded-full text-[13px] font-semibold text-white" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>+ Nuevo Análisis</button>
+      <main className="flex-1 overflow-y-auto scrollbar-hide">
+        {/* Top bar */}
+        <header className="sticky top-0 z-20 px-8 h-14 flex items-center justify-between" style={{ background: 'rgba(247,247,247,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid #EBEBEB' }}>
+          <h1 className="text-[15px] font-semibold" style={{ color: '#111' }}>
+            {activeView === 'home' && 'Panel de Control'}
+            {activeView === 'documentos' && 'Generar Documentos'}
+            {activeView === 'agentes' && 'AI Agents'}
+            {activeView === 'contrapartes' && 'Contrapartes'}
+            {activeView === 'trabajadores' && 'Trabajadores'}
+          </h1>
+          <button onClick={() => { setActiveView('documentos'); setStep(empresaGuardada ? 2 : 1); }}
+            className="px-4 py-1.5 rounded-lg text-[12px] font-semibold text-white" style={{ background: '#111' }}>
+            + Nuevo Analisis
+          </button>
         </header>
 
         <div className="p-8">
           {/* ======== HOME ======== */}
           {activeView === 'home' && mounted && (
             <div>
-              {/* Hero with empresa info if exists */}
-              <div className="fu fu1 rounded-2xl p-8 mb-8 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E1B4B 40%, #312E81 100%)' }}>
-                <div className="absolute top-0 right-0 w-96 h-96 rounded-full opacity-20" style={{ background: 'radial-gradient(circle, #818CF8, transparent 70%)', filter: 'blur(60px)' }}></div>
-                <div className="relative z-10 flex items-center justify-between">
-                  <div className="max-w-lg">
-                    {empresaGuardada ? (
-                      <>
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] mb-2 inline-block px-3 py-1 rounded-full" style={{ background: 'rgba(16,185,129,0.2)', color: '#6EE7B7' }}>EMPRESA REGISTRADA</span>
-                        <h2 className="text-2xl font-extrabold text-white mt-2">{empresaGuardada.razon_social}</h2>
-                        <p className="text-sm mt-1" style={{ color: '#94A3B8' }}>NIT: {empresaGuardada.nit} — {empresaGuardada.sector_nombre || 'Sector general'} — Perfil: {empresaGuardada.perfil_riesgo || 'MEDIO'}</p>
-                        <p className="text-xs mt-2" style={{ color: '#64748B' }}>Rep. Legal: {empresaGuardada.representante_legal} — {empresaGuardada.ciudad}</p>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] mb-3 inline-block px-3 py-1 rounded-full" style={{ background: 'rgba(129,140,248,0.2)', color: '#A5B4FC' }}>PLATAFORMA COMPLY</span>
-                        <h2 className="text-2xl font-extrabold text-white mt-2">Bienvenido a Comply</h2>
-                        <p className="text-sm mt-2" style={{ color: '#94A3B8' }}>Sube tu Certificado de Cámara de Comercio para comenzar. Tu información se guardará para futuras sesiones.</p>
-                      </>
-                    )}
+              {/* Company card */}
+              <div className="rounded-xl p-6 mb-6" style={cardStyle}>
+                {empresaGuardada ? (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-11 h-11 rounded-lg flex items-center justify-center text-white font-bold text-[14px]" style={{ background: '#111' }}>
+                        {empresaGuardada.razon_social?.[0] || 'E'}
+                      </div>
+                      <div>
+                        <h2 className="text-[16px] font-semibold" style={{ color: '#111' }}>{empresaGuardada.razon_social}</h2>
+                        <p className="text-[12px]" style={{ color: '#999' }}>NIT: {empresaGuardada.nit} &middot; {empresaGuardada.sector_nombre || 'Sector general'} &middot; Perfil: {empresaGuardada.perfil_riesgo || 'MEDIO'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <div className="text-center"><div className="text-xl font-bold" style={{ color: '#111' }}>{historialDocumentos.length}</div><div className="text-[10px]" style={{ color: '#999' }}>Documentos</div></div>
+                      <div className="text-center"><div className="text-xl font-bold" style={{ color: '#111' }}>{contrapartes.filter(c => c.tipo_relacion !== 'empleado').length}</div><div className="text-[10px]" style={{ color: '#999' }}>Contrapartes</div></div>
+                      <div className="text-center"><div className="text-xl font-bold" style={{ color: '#111' }}>{trabajadores.length}</div><div className="text-[10px]" style={{ color: '#999' }}>Trabajadores</div></div>
+                    </div>
                   </div>
-                  <div className="hidden lg:flex items-center gap-8">
-                    <div className="text-center"><div className="text-3xl font-black" style={{ color: '#818CF8' }}>{historialDocumentos.length || 0}</div><div className="text-[11px]" style={{ color: '#64748B' }}>Documentos</div></div>
-                    <div className="text-center"><div className="text-3xl font-black" style={{ color: '#A78BFA' }}>6</div><div className="text-[11px]" style={{ color: '#64748B' }}>Sectores</div></div>
-                    <div className="text-center"><div className="text-3xl font-black" style={{ color: '#C084FC' }}>IA</div><div className="text-[11px]" style={{ color: '#64748B' }}>Agents</div></div>
+                ) : (
+                  <div className="flex items-center gap-4">
+                    <div className="w-11 h-11 rounded-lg flex items-center justify-center" style={{ background: '#F5F5F5' }}>
+                      <svg className="w-5 h-5" fill="none" stroke="#999" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                    </div>
+                    <div>
+                      <h2 className="text-[16px] font-semibold" style={{ color: '#111' }}>Bienvenido a Comply</h2>
+                      <p className="text-[13px]" style={{ color: '#999' }}>Sube tu Certificado de Camara de Comercio para comenzar.</p>
+                    </div>
                   </div>
-                </div>
+                )}
+              </div>
+
+              {/* Quick actions */}
+              <div className="grid md:grid-cols-3 gap-4 mb-6">
+                {[
+                  { title: 'Generar Documentos', desc: empresaGuardada ? 'Nuevos documentos con datos guardados' : 'Sube tu Camara de Comercio', view: 'documentos' as ActiveView, icon: (
+                    <svg className="w-5 h-5" fill="none" stroke="#2563EB" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  ), iconBg: '#DBEAFE' },
+                  { title: 'Contrapartes', desc: 'Registra y genera FCC personalizados', view: 'contrapartes' as ActiveView, icon: (
+                    <svg className="w-5 h-5" fill="none" stroke="#D97706" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  ), iconBg: '#FEF3C7' },
+                  { title: 'Trabajadores', desc: 'Declaraciones y capacitaciones', view: 'trabajadores' as ActiveView, icon: (
+                    <svg className="w-5 h-5" fill="none" stroke="#059669" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                  ), iconBg: '#DCFCE7' },
+                ].map((card, i) => (
+                  <div key={i} onClick={() => setActiveView(card.view)} className="rounded-xl p-5 cursor-pointer transition-all hover:shadow-md" style={cardStyle}>
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-3" style={{ background: card.iconBg }}>{card.icon}</div>
+                    <h3 className="font-semibold text-[14px] mb-1" style={{ color: '#111' }}>{card.title}</h3>
+                    <p className="text-[12px]" style={{ color: '#999' }}>{card.desc}</p>
+                  </div>
+                ))}
               </div>
 
               {/* Document History */}
               {historialDocumentos.length > 0 && (
-                <div className="mb-8 fu fu2">
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] mb-4" style={{ color: '#A1A1AA' }}>Documentos recientes</h3>
-                  <div className="grid md:grid-cols-3 gap-3">
-                    {historialDocumentos.slice(0, 6).map((doc) => (
-                      <div key={doc.id} className="card-lift p-4 rounded-xl flex items-center gap-3" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.05)' }}>
-                        <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-[10px] font-black flex-shrink-0" style={{ background: getDocColor(doc.tipo) }}>{getDocExt(doc.tipo)[0]}</div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-[12px] truncate" style={{ color: '#18181B' }}>{getDocLabel(doc.tipo)}</div>
-                          <div className="text-[10px]" style={{ color: '#A1A1AA' }}>{new Date(doc.created_at).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                <div className="mb-6">
+                  <h3 className="text-[12px] font-semibold uppercase tracking-[0.1em] mb-3" style={{ color: '#999' }}>Documentos recientes</h3>
+                  <div className="rounded-xl overflow-hidden" style={cardStyle}>
+                    {historialDocumentos.slice(0, 6).map((doc, i) => (
+                      <div key={doc.id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors" style={i > 0 ? { borderTop: '1px solid #F5F5F5' } : {}}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[9px] font-bold" style={{ background: getDocColor(doc.tipo) }}>{getDocExt(doc.tipo)[0]}</div>
+                          <div>
+                            <div className="font-medium text-[13px]" style={{ color: '#333' }}>{getDocLabel(doc.tipo)}</div>
+                            <div className="text-[11px]" style={{ color: '#BBB' }}>{new Date(doc.created_at).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                          </div>
                         </div>
                         <button onClick={() => dl(doc.base64, doc.nombre_archivo, getMimeForType(doc.tipo))} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100" title="Descargar">
-                          <svg className="w-4 h-4" fill="none" stroke="#6366F1" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                          <svg className="w-4 h-4" fill="none" stroke="#666" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                         </button>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
-
-              {/* Quick Actions */}
-              <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] mb-4" style={{ color: '#A1A1AA' }}>Acciones Rápidas</h3>
-              <div className="grid md:grid-cols-3 gap-5 mb-10 fu fu3">
-                {[
-                  { title: 'Generar Documentos', desc: empresaGuardada ? 'Genera nuevos documentos con tus datos guardados' : 'Sube tu Cámara de Comercio para comenzar', icon: '📋', view: 'documentos' as ActiveView, active: true },
-                  { title: 'Consultar Contrapartes', desc: 'Verifica antecedentes, listas restrictivas y PEPs', icon: '🔍', view: 'contrapartes' as ActiveView, badge: 'Próximamente' },
-                  { title: 'AI Agents', desc: 'Agentes autónomos que protegen tu empresa 24/7', icon: '🤖', view: 'agentes' as ActiveView, badge: 'Nuevo', active: true },
-                ].map((card, i) => (
-                  <div key={i} onClick={() => card.active && setActiveView(card.view)} className={`card-lift rounded-2xl p-6 relative overflow-hidden ${card.active ? 'cursor-pointer' : ''}`} style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.05)' }}>
-                    {card.badge && <span className={`absolute top-4 right-4 text-[9px] px-2 py-0.5 rounded-full font-bold ${card.badge === 'Nuevo' ? 'text-white badge-pulse' : ''}`} style={card.badge === 'Nuevo' ? { background: 'linear-gradient(135deg, #6366F1, #A855F7)' } : { background: '#F1F5F9', color: '#94A3B8' }}>{card.badge}</span>}
-                    <div className="text-2xl mb-3">{card.icon}</div>
-                    <h3 className="font-bold text-[15px] mb-1" style={{ color: '#18181B' }}>{card.title}</h3>
-                    <p className="text-[13px]" style={{ color: '#71717A' }}>{card.desc}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Modules */}
-              <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] mb-4 fu fu4" style={{ color: '#A1A1AA' }}>Módulos</h3>
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 fu fu4">
-                {[
-                  { name: 'Documentos', sub: 'Manual, Matriz, FCC y formatos', icon: '📄', active: true, color: '#6366F1' },
-                  { name: 'Contrapartes', sub: 'KYC, debida diligencia, screening', icon: '👥', active: false, color: '#F59E0B' },
-                  { name: 'Monitoreo', sub: 'Alertas automáticas continuas', icon: '📡', active: false, color: '#10B981' },
-                  { name: 'Reportes', sub: 'Informes regulatorios y gestión', icon: '📊', active: false, color: '#EF4444' },
-                ].map((m, i) => (
-                  <div key={i} className="p-4 rounded-xl" style={{ background: '#fff', border: `1px solid ${m.active ? m.color + '30' : 'rgba(0,0,0,0.05)'}` }}>
-                    <div className="flex items-center justify-between mb-2"><span className="text-xl">{m.icon}</span><span className="text-[9px] px-2 py-0.5 rounded-full font-bold" style={m.active ? { background: m.color, color: '#fff' } : { background: '#F4F4F5', color: '#A1A1AA' }}>{m.active ? 'Activo' : 'Próximo'}</span></div>
-                    <div className="font-semibold text-[13px]" style={{ color: '#18181B' }}>{m.name}</div>
-                    <div className="text-[11px] mt-0.5" style={{ color: '#A1A1AA' }}>{m.sub}</div>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
 
           {/* ======== AI AGENTS ======== */}
           {activeView === 'agentes' && (
             <div>
-              <div className="rounded-2xl p-8 mb-8 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E1B4B 100%)' }}>
-                <div className="absolute top-0 right-0 w-80 h-80 rounded-full opacity-15" style={{ background: 'radial-gradient(circle, #A855F7, transparent)', filter: 'blur(60px)' }}></div>
-                <div className="relative z-10 max-w-2xl">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1 rounded-full inline-block mb-4" style={{ background: 'rgba(168,85,247,0.2)', color: '#C4B5FD' }}>COMPLY AI</span>
-                  <h2 className="text-3xl font-extrabold text-white leading-tight">Agentes de IA<br/>especializados en <span style={{ color: '#C4B5FD' }}>compliance</span></h2>
-                  <p className="text-sm mt-3" style={{ color: '#94A3B8' }}>Copilotos autónomos que trabajan 24/7 automatizando screening, monitoreo y reportes.</p>
-                </div>
+              <div className="rounded-xl p-6 mb-6" style={{ ...cardStyle, background: '#111' }}>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.15em] mb-2" style={{ color: '#666' }}>COMPLY AI</p>
+                <h2 className="text-2xl font-semibold text-white leading-tight mb-2">Agentes de IA especializados en compliance</h2>
+                <p className="text-[13px]" style={{ color: '#888' }}>Copilotos autonomos que trabajan 24/7 automatizando screening, monitoreo y reportes.</p>
               </div>
-              <div className="grid md:grid-cols-3 gap-6">
+              <div className="grid md:grid-cols-3 gap-4">
                 {[
-                  { name: 'Vigía', role: 'Screening Agent', desc: 'Cruza contrapartes contra 300+ listas restrictivas. OFAC, ONU, Procuraduría y PEPs.', features: ['Cruce contra 300+ listas', 'Alertas instantáneas', 'Reportes de debida diligencia'], gradient: 'linear-gradient(135deg, #6366F1, #818CF8)' },
-                  { name: 'Centinela', role: 'Monitoring Agent', desc: 'Monitoreo continuo. Detecta operaciones inusuales y evalúa riesgos dinámicamente.', features: ['Monitoreo transaccional', 'Detección de anomalías', 'Evaluación dinámica de riesgo'], gradient: 'linear-gradient(135deg, #F59E0B, #FBBF24)' },
-                  { name: 'Cumplidor', role: 'Compliance Agent', desc: 'Genera reportes regulatorios y gestiona el calendario de obligaciones.', features: ['Reportes automáticos', 'Calendario regulatorio', 'Actualización periódica KYC'], gradient: 'linear-gradient(135deg, #10B981, #34D399)' },
+                  { name: 'Vigia', role: 'Screening Agent', desc: 'Cruza contrapartes contra 300+ listas restrictivas. OFAC, ONU, Procuraduria y PEPs.', features: ['Cruce contra 300+ listas', 'Alertas instantaneas', 'Reportes de debida diligencia'], color: '#2563EB' },
+                  { name: 'Centinela', role: 'Monitoring Agent', desc: 'Monitoreo continuo. Detecta operaciones inusuales y evalua riesgos dinamicamente.', features: ['Monitoreo transaccional', 'Deteccion de anomalias', 'Evaluacion dinamica de riesgo'], color: '#D97706' },
+                  { name: 'Cumplidor', role: 'Compliance Agent', desc: 'Genera reportes regulatorios y gestiona el calendario de obligaciones.', features: ['Reportes automaticos', 'Calendario regulatorio', 'Actualizacion periodica KYC'], color: '#059669' },
                 ].map((agent, i) => (
-                  <div key={i} className="card-lift rounded-2xl overflow-hidden" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.06)' }}>
-                    <div className="h-1.5" style={{ background: agent.gradient }}></div>
-                    <div className="p-6">
-                      <div className="flex items-center justify-between mb-1"><h3 className="text-xl font-extrabold" style={{ color: '#18181B' }}>{agent.name}</h3><span className="text-[9px] px-2 py-0.5 rounded-full font-bold text-white" style={{ background: agent.gradient }}>NUEVO</span></div>
-                      <div className="text-[11px] font-semibold uppercase tracking-wider mb-4" style={{ color: '#A1A1AA' }}>{agent.role}</div>
-                      <p className="text-[13px] leading-relaxed mb-5" style={{ color: '#71717A' }}>{agent.desc}</p>
-                      <div className="space-y-2.5">{agent.features.map((f, j) => (<div key={j} className="flex items-start gap-2.5 text-[12px]" style={{ color: '#3F3F46' }}><div className="w-5 h-5 rounded-md flex items-center justify-center text-[9px] font-black text-white flex-shrink-0 mt-0.5" style={{ background: agent.gradient }}>{j+1}</div>{f}</div>))}</div>
+                  <div key={i} className="rounded-xl overflow-hidden" style={cardStyle}>
+                    <div className="h-1" style={{ background: agent.color }}></div>
+                    <div className="p-5">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="text-[16px] font-semibold" style={{ color: '#111' }}>{agent.name}</h3>
+                        <div className="w-2 h-2 rounded-full" style={{ background: agent.color }}></div>
+                      </div>
+                      <div className="text-[10px] font-medium uppercase tracking-wider mb-3" style={{ color: '#BBB' }}>{agent.role}</div>
+                      <p className="text-[13px] leading-relaxed mb-4" style={{ color: '#666' }}>{agent.desc}</p>
+                      <div className="space-y-2">
+                        {agent.features.map((f, j) => (
+                          <div key={j} className="flex items-center gap-2 text-[12px]" style={{ color: '#555' }}>
+                            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke={agent.color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                            {f}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="px-6 py-4" style={{ background: '#FAFAFA', borderTop: '1px solid rgba(0,0,0,0.04)' }}><button className="w-full py-2.5 rounded-xl text-[13px] font-bold text-white" style={{ background: agent.gradient }}>Próximamente</button></div>
+                    <div className="px-5 py-3" style={{ borderTop: '1px solid #F5F5F5' }}>
+                      <button className="w-full py-2 rounded-lg text-[12px] font-medium" style={{ background: '#F5F5F5', color: '#999' }}>Proximamente</button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -728,139 +512,118 @@ export default function DashboardPage() {
           {/* ======== CONTRAPARTES ======== */}
           {activeView === 'contrapartes' && (
             <div>
-              {/* Header */}
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <p className="text-[13px]" style={{ color: '#71717A' }}>Registra y gestiona las contrapartes de tu empresa. Genera FCC personalizados.</p>
-                </div>
-                <button onClick={() => setShowNuevaContraparte(true)} className="px-4 py-2 rounded-xl text-[13px] font-bold text-white" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>+ Nueva Contraparte</button>
+              <div className="flex items-center justify-between mb-5">
+                <p className="text-[13px]" style={{ color: '#999' }}>Registra y gestiona las contrapartes de tu empresa.</p>
+                <button onClick={() => setShowNuevaContraparte(true)} className="px-4 py-1.5 rounded-lg text-[12px] font-semibold text-white" style={{ background: '#111' }}>+ Nueva Contraparte</button>
               </div>
 
-              {/* New Contraparte Form */}
               {showNuevaContraparte && (
-                <div className="rounded-2xl p-6 mb-6" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.06)' }}>
+                <div className="rounded-xl p-6 mb-5" style={cardStyle}>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-bold text-[15px]" style={{ color: '#18181B' }}>Registrar Nueva Contraparte</h3>
-                    <button onClick={() => setShowNuevaContraparte(false)} className="text-[20px]" style={{ color: '#A1A1AA' }}>×</button>
+                    <h3 className="font-semibold text-[15px]" style={{ color: '#111' }}>Registrar Contraparte</h3>
+                    <button onClick={() => setShowNuevaContraparte(false)} className="text-[18px]" style={{ color: '#BBB' }}>x</button>
                   </div>
-
-                  {/* Type selection */}
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
-                      <label className="text-[12px] font-semibold block mb-2" style={{ color: '#3F3F46' }}>Tipo de persona</label>
+                      <label className="text-[12px] font-medium block mb-1.5" style={{ color: '#555' }}>Tipo de persona</label>
                       <div className="flex gap-2">
                         {['juridica', 'natural'].map(t => (
-                          <button key={t} onClick={() => setContraparteForm(p => ({...p, tipo_persona: t}))} className="flex-1 px-3 py-2 rounded-lg text-[12px] font-medium border" style={contraparteForm.tipo_persona === t ? { background: '#EEF2FF', borderColor: '#6366F1', color: '#4338CA' } : { borderColor: '#E4E4E7', color: '#71717A' }}>
-                            {t === 'juridica' ? 'Persona Jurídica' : 'Persona Natural'}
+                          <button key={t} onClick={() => setContraparteForm(p => ({...p, tipo_persona: t}))} className="flex-1 px-3 py-2 rounded-lg text-[12px] font-medium transition-all"
+                            style={contraparteForm.tipo_persona === t ? { background: '#111', color: '#fff' } : { background: '#F5F5F5', color: '#666' }}>
+                            {t === 'juridica' ? 'Juridica' : 'Natural'}
                           </button>
                         ))}
                       </div>
                     </div>
                     <div>
-                      <label className="text-[12px] font-semibold block mb-2" style={{ color: '#3F3F46' }}>Tipo de relación</label>
+                      <label className="text-[12px] font-medium block mb-1.5" style={{ color: '#555' }}>Tipo de relacion</label>
                       <div className="flex gap-2">
                         {['cliente', 'proveedor', 'empleado'].map(t => (
-                          <button key={t} onClick={() => setContraparteForm(p => ({...p, tipo_relacion: t}))} className="flex-1 px-3 py-2 rounded-lg text-[12px] font-medium border" style={contraparteForm.tipo_relacion === t ? { background: '#EEF2FF', borderColor: '#6366F1', color: '#4338CA' } : { borderColor: '#E4E4E7', color: '#71717A' }}>
+                          <button key={t} onClick={() => setContraparteForm(p => ({...p, tipo_relacion: t}))} className="flex-1 px-3 py-2 rounded-lg text-[12px] font-medium transition-all"
+                            style={contraparteForm.tipo_relacion === t ? { background: '#111', color: '#fff' } : { background: '#F5F5F5', color: '#666' }}>
                             {t.charAt(0).toUpperCase() + t.slice(1)}
                           </button>
                         ))}
                       </div>
                     </div>
                   </div>
-
-                  {/* Certificate upload (optional) */}
-                  <div className="mb-4 p-4 rounded-xl" style={{ background: '#F8FAFC', border: '1px dashed #C7D2FE' }}>
+                  <div className="mb-4 p-4 rounded-lg" style={{ background: '#FAFAFA', border: '1px dashed #DDD' }}>
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="font-semibold text-[13px]" style={{ color: '#3F3F46' }}>Certificado de Cámara de Comercio <span className="font-normal text-[11px]" style={{ color: '#A1A1AA' }}>(opcional)</span></div>
-                        <div className="text-[11px] mt-0.5" style={{ color: '#71717A' }}>Si subes el certificado, la IA extraerá los datos automáticamente</div>
+                        <div className="font-medium text-[13px]" style={{ color: '#333' }}>Certificado de Camara de Comercio <span className="font-normal text-[11px]" style={{ color: '#BBB' }}>(opcional)</span></div>
+                        <div className="text-[11px] mt-0.5" style={{ color: '#999' }}>Sube el certificado y la IA extraera los datos</div>
                       </div>
-                      <button onClick={() => contraparteFileRef.current?.click()} className="px-3 py-1.5 rounded-lg text-[12px] font-semibold" style={{ background: '#EEF2FF', color: '#6366F1', border: '1px solid #C7D2FE' }}>
-                        {contraparteForm.certificadoBase64 ? '✅ ' + contraparteForm.certificadoNombre : 'Subir PDF'}
+                      <button onClick={() => contraparteFileRef.current?.click()} className="px-3 py-1.5 rounded-lg text-[12px] font-medium" style={{ background: '#F0F0F0', color: '#555' }}>
+                        {contraparteForm.certificadoBase64 ? contraparteForm.certificadoNombre : 'Subir PDF'}
                       </button>
                       <input type="file" ref={contraparteFileRef} onChange={handleContraparteCertificado} accept=".pdf" className="hidden" />
                     </div>
                   </div>
-
-                  {/* Manual fields */}
                   {!contraparteForm.certificadoBase64 && (
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       <div>
-                        <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>{contraparteForm.tipo_persona === 'juridica' ? 'Razón Social' : 'Nombre Completo'}</label>
-                        <input type="text" value={contraparteForm.razon_social} onChange={e => setContraparteForm(p => ({...p, razon_social: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: '#E4E4E7' }} placeholder={contraparteForm.tipo_persona === 'juridica' ? 'Empresa S.A.S.' : 'Juan Pérez'} />
+                        <label className="text-[12px] font-medium block mb-1" style={{ color: '#555' }}>{contraparteForm.tipo_persona === 'juridica' ? 'Razon Social' : 'Nombre'}</label>
+                        <input type="text" value={contraparteForm.razon_social} onChange={e => setContraparteForm(p => ({...p, razon_social: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] outline-none" style={{ border: '1px solid #E0E0E0' }} placeholder={contraparteForm.tipo_persona === 'juridica' ? 'Empresa S.A.S.' : 'Juan Perez'} />
                       </div>
                       <div>
-                        <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>{contraparteForm.tipo_persona === 'juridica' ? 'NIT' : 'Cédula'}</label>
-                        <input type="text" value={contraparteForm.nit_cc} onChange={e => setContraparteForm(p => ({...p, nit_cc: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: '#E4E4E7' }} placeholder="900123456-7" />
+                        <label className="text-[12px] font-medium block mb-1" style={{ color: '#555' }}>{contraparteForm.tipo_persona === 'juridica' ? 'NIT' : 'Cedula'}</label>
+                        <input type="text" value={contraparteForm.nit_cc} onChange={e => setContraparteForm(p => ({...p, nit_cc: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] outline-none" style={{ border: '1px solid #E0E0E0' }} />
                       </div>
                       {contraparteForm.tipo_persona === 'juridica' && (
                         <div>
-                          <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>Representante Legal</label>
-                          <input type="text" value={contraparteForm.representante_legal} onChange={e => setContraparteForm(p => ({...p, representante_legal: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: '#E4E4E7' }} />
+                          <label className="text-[12px] font-medium block mb-1" style={{ color: '#555' }}>Representante Legal</label>
+                          <input type="text" value={contraparteForm.representante_legal} onChange={e => setContraparteForm(p => ({...p, representante_legal: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] outline-none" style={{ border: '1px solid #E0E0E0' }} />
                         </div>
                       )}
                       <div>
-                        <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>Ciudad</label>
-                        <input type="text" value={contraparteForm.ciudad} onChange={e => setContraparteForm(p => ({...p, ciudad: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: '#E4E4E7' }} />
+                        <label className="text-[12px] font-medium block mb-1" style={{ color: '#555' }}>Ciudad</label>
+                        <input type="text" value={contraparteForm.ciudad} onChange={e => setContraparteForm(p => ({...p, ciudad: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] outline-none" style={{ border: '1px solid #E0E0E0' }} />
                       </div>
                     </div>
                   )}
-
-                  {error && <div className="mb-4 p-3 rounded-lg text-[13px] text-red-700" style={{ background: '#FEF2F2' }}>{error}</div>}
-
+                  {error && <div className="mb-4 p-3 rounded-lg text-[12px]" style={{ background: '#FEF2F2', color: '#DC2626' }}>{error}</div>}
                   <div className="flex gap-3">
-                    <button onClick={handleSaveContraparte} disabled={loadingContraparte} className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white disabled:opacity-50" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>
-                      {loadingContraparte ? 'Procesando...' : contraparteForm.certificadoBase64 ? 'Extraer datos y registrar' : 'Registrar contraparte'}
+                    <button onClick={handleSaveContraparte} disabled={loadingContraparte} className="flex-1 py-2 rounded-lg text-[13px] font-semibold text-white disabled:opacity-50" style={btnPrimary}>
+                      {loadingContraparte ? 'Procesando...' : contraparteForm.certificadoBase64 ? 'Extraer datos y registrar' : 'Registrar'}
                     </button>
-                    <button onClick={() => setShowNuevaContraparte(false)} className="px-4 py-2.5 rounded-xl text-[13px] font-semibold" style={{ border: '1px solid #E4E4E7', color: '#71717A' }}>Cancelar</button>
+                    <button onClick={() => setShowNuevaContraparte(false)} className="px-4 py-2 rounded-lg text-[13px] font-medium" style={btnSecondary}>Cancelar</button>
                   </div>
                 </div>
               )}
 
-              {/* Contrapartes list */}
               {contrapartes.length > 0 ? (
-                <div className="space-y-3">
-                  {contrapartes.map((c) => (
-                    <div key={c.id} className="card-lift rounded-xl p-5 flex items-center justify-between" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.05)' }}>
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg" style={{ background: c.tipo_persona === 'juridica' ? '#EEF2FF' : '#FFF7ED' }}>
+                <div className="rounded-xl overflow-hidden" style={cardStyle}>
+                  {contrapartes.map((c, i) => (
+                    <div key={c.id} className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors" style={i > 0 ? { borderTop: '1px solid #F5F5F5' } : {}}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-[13px]" style={{ background: c.tipo_persona === 'juridica' ? '#DBEAFE' : '#FEF3C7' }}>
                           {c.tipo_persona === 'juridica' ? '🏢' : '👤'}
                         </div>
                         <div>
-                          <div className="font-bold text-[14px]" style={{ color: '#18181B' }}>{c.razon_social || 'Sin nombre'}</div>
-                          <div className="text-[12px]" style={{ color: '#71717A' }}>
-                            {c.nit_cc || 'Sin documento'} — {c.tipo_relacion?.charAt(0).toUpperCase() + c.tipo_relacion?.slice(1)} — {c.ciudad || 'Sin ciudad'}
-                          </div>
-                          <div className="text-[10px] mt-0.5" style={{ color: '#A1A1AA' }}>
-                            Registrada el {new Date(c.created_at).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          <div className="font-medium text-[13px]" style={{ color: '#111' }}>{c.razon_social || 'Sin nombre'}</div>
+                          <div className="text-[11px]" style={{ color: '#BBB' }}>
+                            {c.nit_cc || 'Sin doc'} &middot; {c.tipo_relacion?.charAt(0).toUpperCase() + c.tipo_relacion?.slice(1)} &middot; {c.ciudad || ''}
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={c.estado === 'activo' ? { background: '#ECFDF5', color: '#059669' } : { background: '#FEF2F2', color: '#EF4444' }}>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={c.estado === 'activo' ? { background: '#ECFDF5', color: '#059669' } : { background: '#FEF2F2', color: '#DC2626' }}>
                           {c.estado === 'activo' ? 'Activo' : c.estado}
                         </span>
-                        <button onClick={() => handleGenerarFCCContraparte(c)} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold" style={{ background: '#8B5CF6', color: '#fff' }} title="Generar FCC">
-                          Generar FCC
-                        </button>
-                        <button onClick={async () => {
-                          if (confirm('¿Eliminar esta contraparte?')) {
-                            await supabase.from('contrapartes').delete().eq('id', c.id);
-                            setContrapartes(prev => prev.filter(x => x.id !== c.id));
-                          }
-                        }} className="px-2 py-1.5 rounded-lg text-[11px] font-semibold hover:bg-red-50" style={{ color: '#EF4444', border: '1px solid #FCA5A5' }} title="Eliminar">
-                          ✕
+                        <button onClick={() => handleGenerarFCCContraparte(c)} className="px-3 py-1 rounded-lg text-[11px] font-medium text-white" style={{ background: '#7C3AED' }}>FCC</button>
+                        <button onClick={async () => { if (confirm('Eliminar contraparte?')) { await supabase.from('contrapartes').delete().eq('id', c.id); setContrapartes(prev => prev.filter(x => x.id !== c.id)); }}} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-50" style={{ color: '#DC2626' }}>
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : !showNuevaContraparte && (
-                <div className="text-center py-16 rounded-2xl" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.05)' }}>
-                  <div className="text-4xl mb-3">👥</div>
-                  <h3 className="font-bold text-[15px] mb-1" style={{ color: '#18181B' }}>No tienes contrapartes registradas</h3>
-                  <p className="text-[13px] mb-4" style={{ color: '#71717A' }}>Registra tus clientes, proveedores y empleados para generar FCC personalizados.</p>
-                  <button onClick={() => setShowNuevaContraparte(true)} className="px-5 py-2 rounded-xl text-[13px] font-bold text-white" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>+ Registrar primera contraparte</button>
+                <div className="text-center py-14 rounded-xl" style={cardStyle}>
+                  <svg className="w-10 h-10 mx-auto mb-3" fill="none" stroke="#DDD" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  <h3 className="font-semibold text-[14px] mb-1" style={{ color: '#333' }}>No tienes contrapartes</h3>
+                  <p className="text-[12px] mb-4" style={{ color: '#999' }}>Registra clientes y proveedores para generar FCC.</p>
+                  <button onClick={() => setShowNuevaContraparte(true)} className="px-4 py-2 rounded-lg text-[12px] font-semibold text-white" style={btnPrimary}>+ Registrar primera</button>
                 </div>
               )}
             </div>
@@ -869,147 +632,119 @@ export default function DashboardPage() {
           {/* ======== TRABAJADORES ======== */}
           {activeView === 'trabajadores' && (
             <div>
-              {/* Stats bar */}
               {trabajadores.length > 0 && (
-                <div className="grid grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-4 gap-3 mb-5">
                   {[
-                    { label: 'Total', value: trabajadores.length, color: '#6366F1', bg: '#EEF2FF' },
-                    { label: 'Vigentes', value: trabajadores.filter(t => getDeclaracionStatus(t).status === 'vigente').length, color: '#059669', bg: '#ECFDF5' },
-                    { label: 'Por vencer', value: trabajadores.filter(t => getDeclaracionStatus(t).status === 'por_vencer').length, color: '#F59E0B', bg: '#FFFBEB' },
-                    { label: 'Pendientes', value: trabajadores.filter(t => ['pendiente', 'vencida'].includes(getDeclaracionStatus(t).status)).length, color: '#EF4444', bg: '#FEF2F2' },
+                    { label: 'Total', value: trabajadores.length, color: '#111' },
+                    { label: 'Vigentes', value: trabajadores.filter(t => getDeclaracionStatus(t).status === 'vigente').length, color: '#059669' },
+                    { label: 'Por vencer', value: trabajadores.filter(t => getDeclaracionStatus(t).status === 'por_vencer').length, color: '#D97706' },
+                    { label: 'Pendientes', value: trabajadores.filter(t => ['pendiente', 'vencida'].includes(getDeclaracionStatus(t).status)).length, color: '#DC2626' },
                   ].map((s, i) => (
-                    <div key={i} className="rounded-xl p-4 text-center" style={{ background: s.bg, border: `1px solid ${s.color}20` }}>
-                      <div className="text-2xl font-black" style={{ color: s.color }}>{s.value}</div>
-                      <div className="text-[11px] font-semibold mt-1" style={{ color: s.color }}>{s.label}</div>
+                    <div key={i} className="rounded-xl p-4 text-center" style={cardStyle}>
+                      <div className="text-xl font-bold" style={{ color: s.color }}>{s.value}</div>
+                      <div className="text-[11px] font-medium mt-0.5" style={{ color: '#999' }}>{s.label}</div>
                     </div>
                   ))}
                 </div>
               )}
 
-              {/* Header */}
-              <div className="flex items-center justify-between mb-6">
-                <p className="text-[13px]" style={{ color: '#71717A' }}>Gestiona las declaraciones SAGRILAFT de tus trabajadores. Alertas automáticas de renovación anual.</p>
-                <button onClick={() => setShowNuevoTrabajador(true)} className="px-4 py-2 rounded-xl text-[13px] font-bold text-white" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>+ Nuevo Trabajador</button>
+              <div className="flex items-center justify-between mb-5">
+                <p className="text-[13px]" style={{ color: '#999' }}>Declaraciones SAGRILAFT y control de capacitaciones.</p>
+                <button onClick={() => setShowNuevoTrabajador(true)} className="px-4 py-1.5 rounded-lg text-[12px] font-semibold text-white" style={btnPrimary}>+ Nuevo Trabajador</button>
               </div>
 
-              {/* New Worker Form */}
               {showNuevoTrabajador && (
-                <div className="rounded-2xl p-6 mb-6" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.06)' }}>
+                <div className="rounded-xl p-6 mb-5" style={cardStyle}>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-bold text-[15px]" style={{ color: '#18181B' }}>Registrar Nuevo Trabajador</h3>
-                    <button onClick={() => setShowNuevoTrabajador(false)} className="text-[20px]" style={{ color: '#A1A1AA' }}>×</button>
+                    <h3 className="font-semibold text-[15px]" style={{ color: '#111' }}>Registrar Trabajador</h3>
+                    <button onClick={() => setShowNuevoTrabajador(false)} className="text-[18px]" style={{ color: '#BBB' }}>x</button>
                   </div>
-                  {/* Contract upload */}
-                  <div className="mb-4 p-4 rounded-xl" style={{ background: '#F8FAFC', border: '1px dashed #C7D2FE' }}>
+                  <div className="mb-4 p-4 rounded-lg" style={{ background: '#FAFAFA', border: '1px dashed #DDD' }}>
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="font-semibold text-[13px]" style={{ color: '#3F3F46' }}>Contrato laboral <span className="font-normal text-[11px]" style={{ color: '#A1A1AA' }}>(opcional)</span></div>
-                        <div className="text-[11px] mt-0.5" style={{ color: '#71717A' }}>Sube el contrato y la IA extraerá nombre, cédula, cargo, área y fecha de ingreso</div>
+                        <div className="font-medium text-[13px]" style={{ color: '#333' }}>Contrato laboral <span className="font-normal text-[11px]" style={{ color: '#BBB' }}>(opcional)</span></div>
+                        <div className="text-[11px] mt-0.5" style={{ color: '#999' }}>La IA extraera nombre, cedula, cargo, area y fecha</div>
                       </div>
-                      <button onClick={() => trabajadorFileRef.current?.click()} disabled={loadingExtraccion} className="px-3 py-1.5 rounded-lg text-[12px] font-semibold disabled:opacity-50" style={{ background: '#EEF2FF', color: '#6366F1', border: '1px solid #C7D2FE' }}>
-                        {loadingExtraccion ? '🔍 Extrayendo datos...' : trabajadorForm.contratoBase64 ? '✅ ' + trabajadorForm.contratoNombre : 'Subir PDF'}
+                      <button onClick={() => trabajadorFileRef.current?.click()} disabled={loadingExtraccion} className="px-3 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50" style={{ background: '#F0F0F0', color: '#555' }}>
+                        {loadingExtraccion ? 'Extrayendo...' : trabajadorForm.contratoBase64 ? trabajadorForm.contratoNombre : 'Subir PDF'}
                       </button>
                       <input type="file" ref={trabajadorFileRef} onChange={handleContratoTrabajador} accept=".pdf" className="hidden" />
                     </div>
                     {loadingExtraccion && (
                       <div className="mt-3 flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
-                        <span className="text-[12px]" style={{ color: '#6366F1' }}>Analizando contrato con IA...</span>
+                        <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-[11px]" style={{ color: '#666' }}>Analizando contrato con IA...</span>
                       </div>
                     )}
                   </div>
-
-                  {/* Manual fields (pre-filled if extracted) */}
                   <div className="grid grid-cols-2 gap-4 mb-4">
+                    {[
+                      { key: 'nombre', label: 'Nombre completo *', placeholder: 'Juan Perez Lopez' },
+                      { key: 'cedula', label: 'Cedula *', placeholder: '1023456789' },
+                      { key: 'cargo', label: 'Cargo', placeholder: 'Asesor Comercial' },
+                      { key: 'area', label: 'Area', placeholder: 'Ventas' },
+                    ].map(f => (
+                      <div key={f.key}>
+                        <label className="text-[12px] font-medium block mb-1" style={{ color: '#555' }}>{f.label}</label>
+                        <input type="text" value={(trabajadorForm as any)[f.key]} onChange={e => setTrabajadorForm(p => ({...p, [f.key]: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] outline-none transition-colors" style={{ border: `1px solid ${(trabajadorForm as any)[f.key] && trabajadorForm.contratoBase64 ? '#059669' : '#E0E0E0'}`, background: (trabajadorForm as any)[f.key] && trabajadorForm.contratoBase64 ? '#ECFDF5' : '#fff' }} placeholder={f.placeholder} />
+                      </div>
+                    ))}
                     <div>
-                      <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>Nombre completo *</label>
-                      <input type="text" value={trabajadorForm.nombre} onChange={e => setTrabajadorForm(p => ({...p, nombre: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: trabajadorForm.nombre && trabajadorForm.contratoBase64 ? '#6366F1' : '#E4E4E7', background: trabajadorForm.nombre && trabajadorForm.contratoBase64 ? '#EEF2FF' : '#fff' }} placeholder="Juan Pérez López" />
-                    </div>
-                    <div>
-                      <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>Cédula *</label>
-                      <input type="text" value={trabajadorForm.cedula} onChange={e => setTrabajadorForm(p => ({...p, cedula: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: trabajadorForm.cedula && trabajadorForm.contratoBase64 ? '#6366F1' : '#E4E4E7', background: trabajadorForm.cedula && trabajadorForm.contratoBase64 ? '#EEF2FF' : '#fff' }} placeholder="1023456789" />
-                    </div>
-                    <div>
-                      <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>Cargo</label>
-                      <input type="text" value={trabajadorForm.cargo} onChange={e => setTrabajadorForm(p => ({...p, cargo: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: trabajadorForm.cargo && trabajadorForm.contratoBase64 ? '#6366F1' : '#E4E4E7', background: trabajadorForm.cargo && trabajadorForm.contratoBase64 ? '#EEF2FF' : '#fff' }} placeholder="Asesor Comercial" />
-                    </div>
-                    <div>
-                      <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>Área</label>
-                      <input type="text" value={trabajadorForm.area} onChange={e => setTrabajadorForm(p => ({...p, area: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: trabajadorForm.area && trabajadorForm.contratoBase64 ? '#6366F1' : '#E4E4E7', background: trabajadorForm.area && trabajadorForm.contratoBase64 ? '#EEF2FF' : '#fff' }} placeholder="Ventas" />
-                    </div>
-                    <div>
-                      <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>Fecha de ingreso</label>
-                      <input type="date" value={trabajadorForm.fecha_ingreso} onChange={e => setTrabajadorForm(p => ({...p, fecha_ingreso: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: trabajadorForm.fecha_ingreso && trabajadorForm.contratoBase64 ? '#6366F1' : '#E4E4E7', background: trabajadorForm.fecha_ingreso && trabajadorForm.contratoBase64 ? '#EEF2FF' : '#fff' }} />
+                      <label className="text-[12px] font-medium block mb-1" style={{ color: '#555' }}>Fecha de ingreso</label>
+                      <input type="date" value={trabajadorForm.fecha_ingreso} onChange={e => setTrabajadorForm(p => ({...p, fecha_ingreso: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] outline-none" style={{ border: `1px solid ${trabajadorForm.fecha_ingreso && trabajadorForm.contratoBase64 ? '#059669' : '#E0E0E0'}`, background: trabajadorForm.fecha_ingreso && trabajadorForm.contratoBase64 ? '#ECFDF5' : '#fff' }} />
                     </div>
                   </div>
-                  {error && <div className="mb-4 p-3 rounded-lg text-[13px] text-red-700" style={{ background: '#FEF2F2' }}>{error}</div>}
+                  {error && <div className="mb-4 p-3 rounded-lg text-[12px]" style={{ background: '#FEF2F2', color: '#DC2626' }}>{error}</div>}
                   <div className="flex gap-3">
-                    <button onClick={handleSaveTrabajador} disabled={loadingExtraccion} className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white disabled:opacity-50" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>
+                    <button onClick={handleSaveTrabajador} disabled={loadingExtraccion} className="flex-1 py-2 rounded-lg text-[13px] font-semibold text-white disabled:opacity-50" style={btnPrimary}>
                       {loadingExtraccion ? 'Extrayendo datos...' : 'Registrar trabajador'}
                     </button>
-                    <button onClick={() => setShowNuevoTrabajador(false)} className="px-4 py-2.5 rounded-xl text-[13px] font-semibold" style={{ border: '1px solid #E4E4E7', color: '#71717A' }}>Cancelar</button>
+                    <button onClick={() => setShowNuevoTrabajador(false)} className="px-4 py-2 rounded-lg text-[13px] font-medium" style={btnSecondary}>Cancelar</button>
                   </div>
                 </div>
               )}
 
-              {/* Workers list */}
               {trabajadores.length > 0 ? (
-                <div className="space-y-3">
-                  {trabajadores.map((t) => {
+                <div className="rounded-xl overflow-hidden" style={cardStyle}>
+                  {trabajadores.map((t, i) => {
                     const declStatus = getDeclaracionStatus(t);
                     const capacitado = t.datos_extraidos?.capacitado;
                     return (
-                      <div key={t.id} className="card-lift rounded-xl p-5" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.05)' }}>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold text-white" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>
-                              {t.razon_social?.[0]?.toUpperCase() || '?'}
-                            </div>
-                            <div>
-                              <div className="font-bold text-[14px]" style={{ color: '#18181B' }}>{t.razon_social || 'Sin nombre'}</div>
-                              <div className="text-[12px]" style={{ color: '#71717A' }}>
-                                C.C. {t.nit_cc || 'N/A'} — {t.datos_extraidos?.cargo || 'Sin cargo'} — {t.datos_extraidos?.area || 'Sin área'}
-                              </div>
-                              {t.datos_extraidos?.fecha_ingreso && (
-                                <div className="text-[10px] mt-0.5" style={{ color: '#A1A1AA' }}>
-                                  Ingreso: {new Date(t.datos_extraidos.fecha_ingreso).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                </div>
-                              )}
+                      <div key={t.id} className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors" style={i > 0 ? { borderTop: '1px solid #F5F5F5' } : {}}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-semibold text-white" style={{ background: '#111' }}>
+                            {t.razon_social?.[0]?.toUpperCase() || '?'}
+                          </div>
+                          <div>
+                            <div className="font-medium text-[13px]" style={{ color: '#111' }}>{t.razon_social || 'Sin nombre'}</div>
+                            <div className="text-[11px]" style={{ color: '#BBB' }}>
+                              C.C. {t.nit_cc || 'N/A'} &middot; {t.datos_extraidos?.cargo || 'Sin cargo'} &middot; {t.datos_extraidos?.area || ''}
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            {/* Capacitación toggle */}
-                            <button onClick={() => handleToggleCapacitacion(t)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold border" style={capacitado ? { background: '#ECFDF5', borderColor: '#059669', color: '#059669' } : { background: '#FEF2F2', borderColor: '#EF4444', color: '#EF4444' }} title={capacitado ? 'Capacitado' : 'Sin capacitar'}>
-                              {capacitado ? '✓ Capacitado' : '✕ Sin capacitar'}
-                            </button>
-                            {/* Declaration status */}
-                            <span className="text-[10px] px-2.5 py-1 rounded-full font-bold" style={{ background: declStatus.bg, color: declStatus.color }}>
-                              {declStatus.label}
-                            </span>
-                            {/* Generate button */}
-                            <button onClick={() => handleGenerarDeclaracion(t)} disabled={loadingDeclaracion === t.id} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-white disabled:opacity-50" style={{ background: '#6366F1' }}>
-                              {loadingDeclaracion === t.id ? '...' : 'Generar Declaración'}
-                            </button>
-                            {/* Delete */}
-                            <button onClick={async () => {
-                              if (confirm('¿Eliminar este trabajador?')) {
-                                await supabase.from('contrapartes').delete().eq('id', t.id);
-                                setTrabajadores(prev => prev.filter(x => x.id !== t.id));
-                                setContrapartes(prev => prev.filter(x => x.id !== t.id));
-                              }
-                            }} className="px-2 py-1.5 rounded-lg text-[11px] font-semibold hover:bg-red-50" style={{ color: '#EF4444', border: '1px solid #FCA5A5' }}>✕</button>
-                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => handleToggleCapacitacion(t)} className="px-2 py-1 rounded text-[10px] font-medium transition-colors"
+                            style={capacitado ? { background: '#ECFDF5', color: '#059669' } : { background: '#FEF2F2', color: '#DC2626' }}>
+                            {capacitado ? 'Capacitado' : 'Sin capacitar'}
+                          </button>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: declStatus.bg, color: declStatus.color }}>{declStatus.label}</span>
+                          <button onClick={() => handleGenerarDeclaracion(t)} disabled={loadingDeclaracion === t.id} className="px-3 py-1 rounded-lg text-[11px] font-medium text-white disabled:opacity-50" style={btnPrimary}>
+                            {loadingDeclaracion === t.id ? '...' : 'Declaracion'}
+                          </button>
+                          <button onClick={async () => { if (confirm('Eliminar trabajador?')) { await supabase.from('contrapartes').delete().eq('id', t.id); setTrabajadores(prev => prev.filter(x => x.id !== t.id)); setContrapartes(prev => prev.filter(x => x.id !== t.id)); }}} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-50" style={{ color: '#DC2626' }}>
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
                         </div>
                       </div>
                     );
                   })}
                 </div>
               ) : !showNuevoTrabajador && (
-                <div className="text-center py-16 rounded-2xl" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.05)' }}>
-                  <div className="text-4xl mb-3">👷</div>
-                  <h3 className="font-bold text-[15px] mb-1" style={{ color: '#18181B' }}>No tienes trabajadores registrados</h3>
-                  <p className="text-[13px] mb-4" style={{ color: '#71717A' }}>Registra tus empleados para generar declaraciones SAGRILAFT y gestionar renovaciones anuales.</p>
-                  <button onClick={() => setShowNuevoTrabajador(true)} className="px-5 py-2 rounded-xl text-[13px] font-bold text-white" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>+ Registrar primer trabajador</button>
+                <div className="text-center py-14 rounded-xl" style={cardStyle}>
+                  <svg className="w-10 h-10 mx-auto mb-3" fill="none" stroke="#DDD" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                  <h3 className="font-semibold text-[14px] mb-1" style={{ color: '#333' }}>No tienes trabajadores registrados</h3>
+                  <p className="text-[12px] mb-4" style={{ color: '#999' }}>Registra empleados para declaraciones SAGRILAFT.</p>
+                  <button onClick={() => setShowNuevoTrabajador(true)} className="px-4 py-2 rounded-lg text-[12px] font-semibold text-white" style={btnPrimary}>+ Registrar primero</button>
                 </div>
               )}
             </div>
@@ -1017,109 +752,152 @@ export default function DashboardPage() {
 
           {/* ======== DOCUMENTOS ======== */}
           {activeView === 'documentos' && (
-            <div className="max-w-3xl mx-auto">
+            <div className="max-w-2xl mx-auto">
               <div className="flex items-center justify-center mb-8 gap-2">
-                {[{ n: 1, l: 'Subir' }, { n: 2, l: 'Información' }, { n: 3, l: 'Descargar' }].map((s, i) => (
+                {[{ n: 1, l: 'Subir' }, { n: 2, l: 'Informacion' }, { n: 3, l: 'Descargar' }].map((s, i) => (
                   <div key={s.n} className="flex items-center gap-2">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[12px] font-bold ${step >= s.n ? 'text-white' : ''}`} style={step >= s.n ? { background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' } : { background: '#F4F4F5', color: '#A1A1AA' }}>{step > s.n ? '✓' : s.n}</div>
-                    <span className="text-[12px] font-medium" style={{ color: step >= s.n ? '#6366F1' : '#A1A1AA' }}>{s.l}</span>
-                    {i < 2 && <div className="w-12 h-px" style={{ background: step > s.n ? '#6366F1' : '#E4E4E7' }}></div>}
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-semibold ${step >= s.n ? 'text-white' : ''}`}
+                      style={step >= s.n ? { background: '#111' } : { background: '#F0F0F0', color: '#BBB' }}>
+                      {step > s.n ? '✓' : s.n}
+                    </div>
+                    <span className="text-[12px] font-medium" style={{ color: step >= s.n ? '#111' : '#BBB' }}>{s.l}</span>
+                    {i < 2 && <div className="w-10 h-px" style={{ background: step > s.n ? '#111' : '#E0E0E0' }}></div>}
                   </div>
                 ))}
               </div>
 
-              {/* Step 1 — Skip if empresa exists */}
               {step === 1 && (
-                <div className="rounded-2xl p-8" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.06)' }}>
+                <div className="rounded-xl p-7" style={cardStyle}>
                   {empresaGuardada ? (
                     <div>
-                      <div className="flex items-center gap-3 mb-4 p-4 rounded-xl" style={{ background: '#EEF2FF', border: '1px solid #C7D2FE' }}>
-                        <span className="text-2xl">✅</span>
+                      <div className="flex items-center gap-3 mb-4 p-4 rounded-lg" style={{ background: '#ECFDF5', border: '1px solid #BBF7D0' }}>
+                        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="#059669" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                         <div>
-                          <div className="font-bold text-[14px]" style={{ color: '#4338CA' }}>{empresaGuardada.razon_social}</div>
-                          <div className="text-[12px]" style={{ color: '#6366F1' }}>NIT: {empresaGuardada.nit} — Datos guardados</div>
+                          <div className="font-semibold text-[13px]" style={{ color: '#059669' }}>{empresaGuardada.razon_social}</div>
+                          <div className="text-[11px]" style={{ color: '#059669' }}>NIT: {empresaGuardada.nit} — Datos guardados</div>
                         </div>
                       </div>
-                      <p className="text-[13px] mb-4" style={{ color: '#71717A' }}>Tus datos ya están guardados. Puedes generar nuevos documentos directamente o subir un certificado actualizado.</p>
+                      <p className="text-[13px] mb-4" style={{ color: '#999' }}>Genera nuevos documentos o actualiza tu certificado.</p>
                       <div className="flex gap-3">
-                        <button onClick={() => setStep(2)} className="flex-1 py-3 rounded-xl text-white font-bold" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>Generar con datos guardados →</button>
-                        <button onClick={() => fileInputRef.current?.click()} className="px-4 py-3 rounded-xl text-[13px] font-semibold" style={{ border: '1px solid #E4E4E7', color: '#71717A' }}>Actualizar certificado</button>
+                        <button onClick={() => setStep(2)} className="flex-1 py-2.5 rounded-lg text-white font-semibold text-[13px]" style={btnPrimary}>Generar con datos guardados</button>
+                        <button onClick={() => fileInputRef.current?.click()} className="px-4 py-2.5 rounded-lg text-[13px] font-medium" style={btnSecondary}>Actualizar certificado</button>
                       </div>
                       <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".pdf" className="hidden" />
                     </div>
                   ) : (
                     <div>
-                      <h2 className="text-xl font-bold mb-1" style={{ color: '#18181B' }}>Sube tu Certificado de Cámara de Comercio</h2>
-                      <p className="text-[13px] mb-6" style={{ color: '#71717A' }}>Nuestra IA generará documentos personalizados. Tus datos se guardarán para futuras sesiones.</p>
-                      <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all hover:border-indigo-300" style={{ borderColor: formData.certificadoBase64 ? '#6366F1' : '#E4E4E7', background: formData.certificadoBase64 ? '#EEF2FF' : '#FAFAFA' }}>
+                      <h2 className="text-[17px] font-semibold mb-1" style={{ color: '#111' }}>Sube tu Certificado de Camara de Comercio</h2>
+                      <p className="text-[13px] mb-5" style={{ color: '#999' }}>La IA generara documentos personalizados para tu empresa.</p>
+                      <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all hover:border-gray-400"
+                        style={{ borderColor: formData.certificadoBase64 ? '#059669' : '#E0E0E0', background: formData.certificadoBase64 ? '#ECFDF5' : '#FAFAFA' }}>
                         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".pdf" className="hidden" />
-                        <div className="text-4xl mb-3">{formData.certificadoBase64 ? '✅' : '📎'}</div>
-                        {formData.certificadoBase64 ? <><p className="font-bold" style={{ color: '#6366F1' }}>{formData.certificadoNombre}</p><p className="text-[12px] mt-1" style={{ color: '#A1A1AA' }}>Clic para cambiar</p></> : <><p className="font-semibold" style={{ color: '#3F3F46' }}>Arrastra o haz clic para subir</p><p className="text-[12px] mt-1" style={{ color: '#A1A1AA' }}>PDF — Máximo 10MB</p></>}
+                        {formData.certificadoBase64 ? (
+                          <><svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="#059669" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg><p className="font-medium text-[13px]" style={{ color: '#059669' }}>{formData.certificadoNombre}</p></>
+                        ) : (
+                          <><svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="#CCC" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg><p className="font-medium text-[13px]" style={{ color: '#555' }}>Arrastra o haz clic para subir</p><p className="text-[11px] mt-1" style={{ color: '#BBB' }}>PDF — Maximo 10MB</p></>
+                        )}
                       </div>
-                      {formData.certificadoBase64 && <button onClick={() => setStep(2)} className="w-full mt-6 py-3 rounded-xl text-white font-bold" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>Continuar →</button>}
+                      {formData.certificadoBase64 && <button onClick={() => setStep(2)} className="w-full mt-5 py-2.5 rounded-lg text-white font-semibold text-[13px]" style={btnPrimary}>Continuar</button>}
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Step 2 */}
               {step === 2 && (
-                <div className="rounded-2xl p-8" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.06)' }}>
-                  <h2 className="text-xl font-bold mb-6" style={{ color: '#18181B' }}>Información Adicional</h2>
-                  {[{ key: 'manejaEfectivo', q: '¿Tu empresa maneja efectivo?' }, { key: 'operaExtranjeros', q: '¿Opera con extranjeros?' }].map(q => (
-                    <div key={q.key} className="mb-5"><label className="text-[13px] font-semibold block mb-2" style={{ color: '#3F3F46' }}>{q.q}</label><div className="flex gap-2">{['Sí', 'No'].map(o => (<button key={o} onClick={() => setFormData(p => ({ ...p, [q.key]: o.toLowerCase() }))} className="px-5 py-2 rounded-lg text-[13px] font-medium border transition-all" style={(formData as any)[q.key] === o.toLowerCase() ? { background: '#EEF2FF', borderColor: '#6366F1', color: '#4338CA' } : { borderColor: '#E4E4E7', color: '#71717A' }}>{o}</button>))}</div></div>
+                <div className="rounded-xl p-7" style={cardStyle}>
+                  <h2 className="text-[17px] font-semibold mb-5" style={{ color: '#111' }}>Informacion Adicional</h2>
+                  {[{ key: 'manejaEfectivo', q: 'Tu empresa maneja efectivo?' }, { key: 'operaExtranjeros', q: 'Opera con extranjeros?' }].map(q => (
+                    <div key={q.key} className="mb-4">
+                      <label className="text-[13px] font-medium block mb-2" style={{ color: '#333' }}>{q.q}</label>
+                      <div className="flex gap-2">
+                        {['Si', 'No'].map(o => (
+                          <button key={o} onClick={() => setFormData(p => ({ ...p, [q.key]: o.toLowerCase() }))} className="px-4 py-2 rounded-lg text-[12px] font-medium transition-all"
+                            style={(formData as any)[q.key] === o.toLowerCase() ? { background: '#111', color: '#fff' } : { background: '#F5F5F5', color: '#666' }}>{o}</button>
+                        ))}
+                      </div>
+                    </div>
                   ))}
-                  <div className="mb-5"><label className="text-[13px] font-semibold block mb-2" style={{ color: '#3F3F46' }}>Canales de operación</label><div className="flex flex-wrap gap-2">{['Presencial', 'Virtual', 'Telefónico', 'Mixto'].map(c => (<button key={c} onClick={() => handleCanalesChange(c.toLowerCase())} className="px-4 py-2 rounded-lg text-[13px] font-medium border transition-all" style={formData.canales.includes(c.toLowerCase()) ? { background: '#EEF2FF', borderColor: '#6366F1', color: '#4338CA' } : { borderColor: '#E4E4E7', color: '#71717A' }}>{c}</button>))}</div></div>
+                  <div className="mb-4">
+                    <label className="text-[13px] font-medium block mb-2" style={{ color: '#333' }}>Canales de operacion</label>
+                    <div className="flex flex-wrap gap-2">
+                      {['Presencial', 'Virtual', 'Telefonico', 'Mixto'].map(c => (
+                        <button key={c} onClick={() => handleCanalesChange(c.toLowerCase())} className="px-4 py-2 rounded-lg text-[12px] font-medium transition-all"
+                          style={formData.canales.includes(c.toLowerCase()) ? { background: '#111', color: '#fff' } : { background: '#F5F5F5', color: '#666' }}>{c}</button>
+                      ))}
+                    </div>
+                  </div>
 
-                  <div className="mt-6 p-5 rounded-xl" style={{ background: '#FAFAFA', border: '1px solid rgba(0,0,0,0.04)' }}>
-                    <h3 className="text-[13px] font-bold mb-3" style={{ color: '#3F3F46' }}>Estado de cumplimiento</h3>
-                    {[{ key: 'tieneOficialCumplimiento', q: '¿Oficial de cumplimiento?' },{ key: 'realizaDebidaDiligencia', q: '¿Debida diligencia?' },{ key: 'consultaListasRestrictivas', q: '¿Consulta listas restrictivas?' },{ key: 'tieneProcedimientoROS', q: '¿Procedimiento para ROS?' },{ key: 'capacitaPersonal', q: '¿Capacita personal en LA/FT?' }].map(q => (
-                      <div key={q.key} className="flex items-center justify-between py-2 border-b" style={{ borderColor: '#F4F4F5' }}><span className="text-[12px]" style={{ color: '#52525B' }}>{q.q}</span><div className="flex gap-1.5">{['Sí', 'En proceso', 'No'].map(o => (<button key={o} onClick={() => setFormData(p => ({ ...p, [q.key]: o.toLowerCase() }))} className="px-2.5 py-1 rounded text-[10px] font-semibold transition-all" style={(formData as any)[q.key] === o.toLowerCase() ? { background: o === 'Sí' ? '#10B981' : o === 'En proceso' ? '#F59E0B' : '#EF4444', color: '#fff' } : { background: '#F4F4F5', color: '#A1A1AA' }}>{o}</button>))}</div></div>
+                  <div className="mt-5 p-4 rounded-lg" style={{ background: '#FAFAFA' }}>
+                    <h3 className="text-[12px] font-semibold mb-3" style={{ color: '#555' }}>Estado de cumplimiento</h3>
+                    {[{ key: 'tieneOficialCumplimiento', q: 'Oficial de cumplimiento?' },{ key: 'realizaDebidaDiligencia', q: 'Debida diligencia?' },{ key: 'consultaListasRestrictivas', q: 'Consulta listas restrictivas?' },{ key: 'tieneProcedimientoROS', q: 'Procedimiento para ROS?' },{ key: 'capacitaPersonal', q: 'Capacita personal en LA/FT?' }].map(q => (
+                      <div key={q.key} className="flex items-center justify-between py-2" style={{ borderBottom: '1px solid #F0F0F0' }}>
+                        <span className="text-[12px]" style={{ color: '#555' }}>{q.q}</span>
+                        <div className="flex gap-1">
+                          {['Si', 'En proceso', 'No'].map(o => (
+                            <button key={o} onClick={() => setFormData(p => ({ ...p, [q.key]: o.toLowerCase() }))} className="px-2 py-0.5 rounded text-[10px] font-medium transition-all"
+                              style={(formData as any)[q.key] === o.toLowerCase()
+                                ? { background: o === 'Si' ? '#059669' : o === 'En proceso' ? '#D97706' : '#DC2626', color: '#fff' }
+                                : { background: '#F0F0F0', color: '#BBB' }
+                              }>{o}</button>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
 
-                  {error && <div className="mt-4 p-3 rounded-lg text-[13px] text-red-700" style={{ background: '#FEF2F2' }}>{error}</div>}
+                  {error && <div className="mt-4 p-3 rounded-lg text-[12px]" style={{ background: '#FEF2F2', color: '#DC2626' }}>{error}</div>}
 
-                  <div className="flex gap-3 mt-6">
-                    <button onClick={() => setStep(1)} className="px-5 py-3 rounded-xl text-[13px] font-semibold" style={{ border: '1px solid #E4E4E7', color: '#71717A' }}>← Atrás</button>
-                    <button onClick={handleSubmit} disabled={loading} className="flex-1 py-3 rounded-xl text-white font-bold text-[14px] disabled:opacity-50" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>{loading ? 'Generando...' : 'Generar Documentos'}</button>
+                  <div className="flex gap-3 mt-5">
+                    <button onClick={() => setStep(1)} className="px-4 py-2.5 rounded-lg text-[13px] font-medium" style={btnSecondary}>Atras</button>
+                    <button onClick={handleSubmit} disabled={loading} className="flex-1 py-2.5 rounded-lg text-white font-semibold text-[13px] disabled:opacity-50" style={btnPrimary}>
+                      {loading ? 'Generando...' : 'Generar Documentos'}
+                    </button>
                   </div>
 
                   {loading && (
-                    <div className="mt-8 p-6 rounded-xl" style={{ background: '#F8FAFC', border: '1px solid rgba(0,0,0,0.04)' }}>
-                      <div className="text-center">
-                        <div className="text-4xl mb-3 float">{loadingMessages[loadingStep]?.icon}</div>
-                        <h3 className="text-[15px] font-bold mb-1" style={{ color: '#18181B' }}>{loadingMessages[loadingStep]?.text}</h3>
-                        <p className="text-[12px] mb-4" style={{ color: '#6366F1' }}>{loadingMessages[loadingStep]?.sub}</p>
-                        <div className="max-w-xs mx-auto"><div className="flex justify-between text-[10px] mb-1" style={{ color: '#A1A1AA' }}><span>Progreso</span><span>{Math.round(((loadingStep+1)/loadingMessages.length)*100)}%</span></div><div className="w-full rounded-full h-1.5" style={{ background: '#E4E4E7' }}><div className="h-1.5 rounded-full transition-all duration-1000" style={{ width: `${((loadingStep+1)/loadingMessages.length)*100}%`, background: 'linear-gradient(90deg, #6366F1, #A855F7)' }}></div></div></div>
+                    <div className="mt-6 p-5 rounded-lg text-center" style={{ background: '#FAFAFA' }}>
+                      <div className="text-3xl mb-2">{loadingMessages[loadingStep]?.icon}</div>
+                      <h3 className="text-[14px] font-semibold mb-0.5" style={{ color: '#111' }}>{loadingMessages[loadingStep]?.text}</h3>
+                      <p className="text-[11px] mb-3" style={{ color: '#999' }}>{loadingMessages[loadingStep]?.sub}</p>
+                      <div className="max-w-xs mx-auto">
+                        <div className="flex justify-between text-[10px] mb-1" style={{ color: '#BBB' }}><span>Progreso</span><span>{Math.round(((loadingStep+1)/loadingMessages.length)*100)}%</span></div>
+                        <div className="w-full rounded-full h-1" style={{ background: '#E0E0E0' }}><div className="h-1 rounded-full transition-all duration-1000" style={{ width: `${((loadingStep+1)/loadingMessages.length)*100}%`, background: '#111' }}></div></div>
                       </div>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Step 3 */}
               {step === 3 && documentosGenerados && (
                 <div>
-                  <div className="p-6 rounded-2xl mb-6 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #059669, #10B981)' }}>
-                    <div className="relative z-10 flex items-center gap-4"><div className="text-4xl float">🎉</div><div><h2 className="text-xl font-extrabold text-white">¡Documentos listos!</h2><p className="text-green-100 text-[13px] mt-0.5">{documentosGenerados.empresa} — NIT: {documentosGenerados.nit}</p><p className="text-green-200 text-[11px] mt-1">Guardados en tu historial — siempre disponibles para descargar</p></div></div>
+                  <div className="p-5 rounded-xl mb-5" style={{ background: '#ECFDF5', border: '1px solid #BBF7D0' }}>
+                    <div className="flex items-center gap-3">
+                      <svg className="w-6 h-6" fill="none" stroke="#059669" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                      <div>
+                        <h2 className="text-[15px] font-semibold" style={{ color: '#059669' }}>Documentos listos</h2>
+                        <p className="text-[12px]" style={{ color: '#059669' }}>{documentosGenerados.empresa} — NIT: {documentosGenerados.nit}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid md:grid-cols-3 gap-4 mb-6">
+                  <div className="grid md:grid-cols-3 gap-4 mb-5">
                     {[
-                      { name: 'Manual de Medidas Mínimas', type: 'DOCX', color: '#6366F1', fn: () => dl(documentosGenerados.manualBase64, documentosGenerados.manualNombre, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') },
-                      { name: 'Matriz de Riesgo', type: 'XLSX', color: '#10B981', fn: () => dl(documentosGenerados.matrizBase64, documentosGenerados.matrizNombre, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') },
-                      { name: 'Formulario FCC', type: 'XLSX', color: '#8B5CF6', fn: () => dl(documentosGenerados.fccBase64, documentosGenerados.fccNombre, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') },
+                      { name: 'Manual de Medidas Minimas', type: 'DOCX', color: '#2563EB', fn: () => dl(documentosGenerados.manualBase64, documentosGenerados.manualNombre, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') },
+                      { name: 'Matriz de Riesgo', type: 'XLSX', color: '#059669', fn: () => dl(documentosGenerados.matrizBase64, documentosGenerados.matrizNombre, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') },
+                      { name: 'Formulario FCC', type: 'XLSX', color: '#7C3AED', fn: () => dl(documentosGenerados.fccBase64, documentosGenerados.fccNombre, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') },
                     ].map((doc, i) => (
-                      <div key={i} className="card-lift rounded-2xl p-5" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.06)' }}>
-                        <div className="flex items-center justify-between mb-3"><div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-[11px] font-black" style={{ background: doc.color }}>{doc.type[0]}</div><span className="text-[9px] px-2 py-0.5 rounded font-bold" style={{ background: doc.color + '15', color: doc.color }}>{doc.type}</span></div>
-                        <h4 className="font-bold text-[13px] mb-3" style={{ color: '#18181B' }}>{doc.name}</h4>
-                        <button onClick={doc.fn} className="w-full py-2.5 rounded-xl text-[12px] font-bold text-white hover:opacity-90" style={{ background: doc.color }}>↓ Descargar</button>
+                      <div key={i} className="rounded-xl p-5" style={cardStyle}>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[10px] font-bold" style={{ background: doc.color }}>{doc.type[0]}</div>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded font-medium" style={{ background: '#F5F5F5', color: '#999' }}>{doc.type}</span>
+                        </div>
+                        <h4 className="font-medium text-[13px] mb-3" style={{ color: '#111' }}>{doc.name}</h4>
+                        <button onClick={doc.fn} className="w-full py-2 rounded-lg text-[12px] font-semibold text-white" style={{ background: doc.color }}>Descargar</button>
                       </div>
                     ))}
                   </div>
                   <div className="flex gap-3">
-                    <button onClick={() => { setActiveView('home'); setDocumentosGenerados(null); if (user) loadEmpresaData(user.email); }} className="flex-1 py-3 rounded-xl text-[13px] font-semibold text-white" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>Ver Panel de Control →</button>
-                    <button onClick={() => { setStep(2); setDocumentosGenerados(null); }} className="px-6 py-3 rounded-xl text-[13px] font-semibold" style={{ border: '1px solid #E4E4E7', color: '#71717A' }}>Regenerar</button>
+                    <button onClick={() => { setActiveView('home'); setDocumentosGenerados(null); if (user) loadEmpresaData(user.email); }} className="flex-1 py-2.5 rounded-lg text-[13px] font-semibold text-white" style={btnPrimary}>Ver Panel</button>
+                    <button onClick={() => { setStep(2); setDocumentosGenerados(null); }} className="px-5 py-2.5 rounded-lg text-[13px] font-medium" style={btnSecondary}>Regenerar</button>
                   </div>
                 </div>
               )}
