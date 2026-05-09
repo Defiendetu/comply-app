@@ -111,53 +111,62 @@ async function consultarOFAC(nombre: string, identificacion?: string): Promise<R
 }
 
 // ==========================================
-// OpenSanctions - ONU, UE, and 85+ sources
+// ONU Consolidated Sanctions List
 // ==========================================
-async function consultarOpenSanctions(nombre: string): Promise<ResultadoLista> {
+async function consultarONU(nombre: string): Promise<ResultadoLista> {
   const resultado: ResultadoLista = {
-    lista: 'Listas consolidadas (ONU, UE, Interpol y otras)',
-    fuente: 'OpenSanctions.org',
+    lista: 'Lista consolidada de sanciones ONU',
+    fuente: 'Consejo de Seguridad de las Naciones Unidas',
     tipo: 'internacional',
     resultado: 'sin_coincidencia',
     coincidencias: [],
-    url: 'https://www.opensanctions.org/',
+    url: 'https://scsanctions.un.org/',
   };
 
   try {
-    const query = encodeURIComponent(nombre);
     const resp = await fetch(
-      `https://api.opensanctions.org/search/default?q=${query}&limit=5`,
-      {
-        headers: { 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(10000),
-      }
+      'https://scsanctions.un.org/resources/xml/en/consolidated.xml',
+      { signal: AbortSignal.timeout(15000) }
     );
 
     if (!resp.ok) {
       resultado.resultado = 'no_consultado';
-      resultado.detalles = 'No se pudo acceder a OpenSanctions API';
+      resultado.detalles = 'No se pudo acceder a la lista de sanciones ONU';
       return resultado;
     }
 
-    const data = await resp.json();
-    const results = data.results || [];
+    const xml = await resp.text();
+    const nombreNorm = normalizar(nombre);
+    const words = nombreNorm.split(/\s+/).filter(w => w.length > 2);
 
-    for (const r of results) {
-      const score = r.score || 0;
-      const entityName = r.caption || r.name || '';
-      const datasets = (r.datasets || []).join(', ');
-      const countries = (r.properties?.country || []).join(', ');
+    const entityRegex = /<INDIVIDUAL>[\s\S]*?<\/INDIVIDUAL>|<ENTITY>[\s\S]*?<\/ENTITY>/gi;
+    let match;
+    while ((match = entityRegex.exec(xml)) !== null) {
+      const block = match[0];
 
-      if (score > 0.7) {
-        resultado.resultado = score > 0.9 ? 'coincidencia_positiva' : 'coincidencia_parcial';
+      const nameMatches = block.match(/<FIRST_NAME>(.*?)<\/FIRST_NAME>|<SECOND_NAME>(.*?)<\/SECOND_NAME>|<THIRD_NAME>(.*?)<\/THIRD_NAME>|<NAME_ORIGINAL_SCRIPT>(.*?)<\/NAME_ORIGINAL_SCRIPT>/gi) || [];
+      const fullName = nameMatches.map(m => m.replace(/<\/?[^>]+>/g, '').trim()).filter(Boolean).join(' ');
+
+      if (!fullName) continue;
+
+      const sim = similitud(nombre, fullName);
+      if (sim >= 0.7) {
+        const listaMatch = block.match(/<UN_LIST_TYPE>(.*?)<\/UN_LIST_TYPE>/i);
+        const lista = listaMatch ? listaMatch[1] : 'N/A';
+        const refMatch = block.match(/<REFERENCE_NUMBER>(.*?)<\/REFERENCE_NUMBER>/i);
+        const ref = refMatch ? refMatch[1] : '';
+
+        resultado.resultado = sim >= 0.95 ? 'coincidencia_positiva' : 'coincidencia_parcial';
         resultado.coincidencias.push(
-          `${entityName} (score: ${(score * 100).toFixed(0)}%) | Fuentes: ${datasets} | País: ${countries || 'N/A'}`
+          `${fullName} | Lista: ${lista}${ref ? ' | Ref: ' + ref : ''}`
         );
       }
+
+      if (resultado.coincidencias.length >= 5) break;
     }
   } catch (err: any) {
     resultado.resultado = 'no_consultado';
-    resultado.detalles = `Error consultando OpenSanctions: ${err.message}`;
+    resultado.detalles = `Error consultando ONU: ${err.message}`;
   }
 
   return resultado;
@@ -179,10 +188,10 @@ async function consultarPEPs(nombre: string, identificacion?: string): Promise<R
   try {
     let url: string;
     if (identificacion) {
-      url = `https://www.datos.gov.co/resource/3qxn-uc22.json?$where=numero_de_identificacion='${identificacion}'&$limit=10`;
+      url = `https://www.datos.gov.co/resource/3qxn-uc22.json?$where=numero_documento='${identificacion}'&$limit=10`;
     } else {
       const query = encodeURIComponent(nombre);
-      url = `https://www.datos.gov.co/resource/3qxn-uc22.json?$where=upper(nombre_completo) like upper('%25${query}%25')&$limit=10`;
+      url = `https://www.datos.gov.co/resource/3qxn-uc22.json?$where=upper(nombre_pep) like upper('%25${query}%25')&$limit=10`;
     }
 
     const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
@@ -195,10 +204,10 @@ async function consultarPEPs(nombre: string, identificacion?: string): Promise<R
     const data = await resp.json();
 
     for (const pep of data) {
-      const pepNombre = pep.nombre_completo || pep.primer_nombre || '';
-      const cargo = pep.cargo || pep.denominacion_del_cargo || '';
-      const entidad = pep.entidad || pep.nombre_entidad || '';
-      const fechaVinculacion = pep.fecha_de_vinculacion || pep.fecha_vinculacion || '';
+      const pepNombre = pep.nombre_pep || '';
+      const cargo = pep.denominacion_cargo || '';
+      const entidad = pep.nombre_entidad || '';
+      const fechaVinculacion = pep.fecha_vinculacion || '';
 
       const sim = identificacion ? 1 : similitud(nombre, pepNombre);
       if (sim >= 0.7) {
@@ -415,7 +424,7 @@ export async function POST(request: NextRequest) {
 
     const resultados: ResultadoLista[] = await Promise.all([
       consultarOFAC(nombre, identificacion),
-      consultarOpenSanctions(nombre),
+      consultarONU(nombre),
       consultarPEPs(nombre, identificacion),
       consultarProcuraduria(identificacion, apify_token),
       consultarContraloria(identificacion, apify_token),
