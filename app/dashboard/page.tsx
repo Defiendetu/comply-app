@@ -73,6 +73,9 @@ export default function DashboardPage() {
   const [showListasForm, setShowListasForm] = useState(false);
   const [listasForm, setListasForm] = useState({ nombre: '', nit: '', tipo_persona: 'juridica', tipo_relacion: 'cliente' });
   const [loadingListas, setLoadingListas] = useState(false);
+  const [hitosManuales, setHitosManuales] = useState<Record<string, { completado: boolean; fecha?: string; nota?: string }>>({});
+  const [editingHito, setEditingHito] = useState<string | null>(null);
+  const [hitoNota, setHitoNota] = useState('');
   const [showFerForm, setShowFerForm] = useState(false);
   const [ferStep, setFerStep] = useState(1);
   const [ferForm, setFerForm] = useState({
@@ -126,6 +129,9 @@ export default function DashboardPage() {
       const { data: empresas } = await supabase.from('empresas').select('*').eq('user_email', email).order('created_at', { ascending: false }).limit(1);
       if (empresas && empresas.length > 0) {
         setEmpresaGuardada(empresas[0]);
+        if (empresas[0].hitos_cumplimiento && typeof empresas[0].hitos_cumplimiento === 'object') {
+          setHitosManuales(empresas[0].hitos_cumplimiento);
+        }
         const { data: docs } = await supabase.from('documentos').select('*').eq('empresa_id', empresas[0].id).order('created_at', { ascending: false });
         if (docs) {
           setHistorialDocumentos(docs.slice(0, 8));
@@ -241,6 +247,32 @@ export default function DashboardPage() {
     setFerForm(resetForm);
     setFerStep(1);
     setShowFerForm(true);
+  };
+
+  const handleToggleHito = async (key: string) => {
+    if (!empresaGuardada) return;
+    const current = hitosManuales[key];
+    const updated = { ...hitosManuales };
+    if (current?.completado) {
+      updated[key] = { completado: false };
+      setEditingHito(null);
+    } else {
+      setEditingHito(key);
+      setHitoNota('');
+      return;
+    }
+    setHitosManuales(updated);
+    await supabase.from('empresas').update({ hitos_cumplimiento: updated }).eq('id', empresaGuardada.id);
+  };
+
+  const handleConfirmHito = async (key: string) => {
+    if (!empresaGuardada) return;
+    const updated = { ...hitosManuales, [key]: { completado: true, fecha: new Date().toISOString(), nota: hitoNota || undefined } };
+    setHitosManuales(updated);
+    setEditingHito(null);
+    setHitoNota('');
+    await supabase.from('empresas').update({ hitos_cumplimiento: updated }).eq('id', empresaGuardada.id);
+    if (user) await logActivity(empresaGuardada.id, user.email, 'completar_hito', `Hito: ${key}${hitoNota ? ' — ' + hitoNota : ''}`);
   };
 
   const handleGenerarFer = async () => {
@@ -509,6 +541,124 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
+
+              {/* Compliance Tracker */}
+              {empresaGuardada && (() => {
+                const autoHitos = [
+                  { key: 'manual', label: 'Manual de Medidas Mínimas', desc: 'Documento obligatorio del sistema de prevención', done: historialDocumentos.some(d => d.tipo === 'manual'), auto: true },
+                  { key: 'matriz', label: 'Matriz de Riesgo', desc: 'Evaluación de riesgos LA/FT por sector', done: historialDocumentos.some(d => d.tipo === 'matriz'), auto: true },
+                  { key: 'fcc', label: 'Formulario FCC', desc: 'Formato de Conocimiento del Cliente', done: historialDocumentos.some(d => d.tipo === 'fcc'), auto: true },
+                  { key: 'listas', label: 'Consulta de Listas Restrictivas', desc: 'Al menos una consulta realizada', done: historialDocumentos.some(d => d.tipo === 'listas_restrictivas'), auto: true },
+                  { key: 'fer', label: 'Evaluación de Riesgos (FER)', desc: 'Al menos una evaluación realizada', done: historialDocumentos.some(d => d.tipo === 'fer'), auto: true },
+                ];
+                const workerHitos = trabajadores.length > 0 ? [
+                  { key: 'capacitacion', label: 'Capacitación del personal', desc: `${trabajadores.filter(t => t.datos_extraidos?.capacitado).length}/${trabajadores.length} capacitados`, done: trabajadores.length > 0 && trabajadores.every(t => t.datos_extraidos?.capacitado), auto: true },
+                  { key: 'declaraciones', label: 'Declaraciones de trabajadores', desc: `${trabajadores.filter(t => getDeclaracionStatus(t).status === 'vigente').length}/${trabajadores.length} vigentes`, done: trabajadores.length > 0 && trabajadores.every(t => getDeclaracionStatus(t).status === 'vigente'), auto: true },
+                ] : [];
+                const manualHitos = [
+                  { key: 'oficial_cumplimiento', label: 'Oficial de cumplimiento designado', desc: 'Persona responsable del sistema SAGRILAFT', done: hitosManuales.oficial_cumplimiento?.completado || false, auto: false },
+                  { key: 'debida_diligencia', label: 'Debida diligencia implementada', desc: 'Procedimiento formal de conocimiento del cliente', done: hitosManuales.debida_diligencia?.completado || false, auto: false },
+                  { key: 'procedimiento_ros', label: 'Procedimiento para ROS', desc: 'Reporte de Operaciones Sospechosas establecido', done: hitosManuales.procedimiento_ros?.completado || false, auto: false },
+                ];
+                const allHitos = [...autoHitos, ...workerHitos, ...manualHitos];
+                const completed = allHitos.filter(h => h.done).length;
+                const total = allHitos.length;
+                const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+                const circumference = 2 * Math.PI * 40;
+                const dashOffset = circumference - (pct / 100) * circumference;
+                const pctColor = pct >= 80 ? '#059669' : pct >= 50 ? '#D97706' : '#DC2626';
+
+                return (
+                  <div className="rounded-xl mb-6 overflow-hidden" style={cardStyle}>
+                    <div className="p-6">
+                      <div className="flex items-center gap-5">
+                        <div className="relative w-24 h-24 flex-shrink-0">
+                          <svg viewBox="0 0 88 88" className="w-full h-full -rotate-90">
+                            <circle cx="44" cy="44" r="40" fill="none" stroke="#F3F3F3" strokeWidth="5" />
+                            <circle cx="44" cy="44" r="40" fill="none" stroke={pctColor} strokeWidth="5" strokeDasharray={circumference} strokeDashoffset={dashOffset} strokeLinecap="round" className="transition-all duration-700" />
+                          </svg>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className="text-[20px] font-bold" style={{ color: pctColor }}>{pct}%</span>
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] mb-1" style={{ color: '#999' }}>Cumplimiento SAGRILAFT</div>
+                          <div className="text-[15px] font-semibold mb-1" style={{ color: '#111' }}>{completed} de {total} hitos completados</div>
+                          <p className="text-[11px]" style={{ color: '#999' }}>
+                            {pct === 100 ? 'Todos los hitos de cumplimiento están al día.' :
+                             pct >= 80 ? 'Buen nivel de cumplimiento. Completa los hitos restantes.' :
+                             pct >= 50 ? 'Nivel intermedio. Continúa avanzando en los hitos pendientes.' :
+                             'Tu cumplimiento necesita atención. Completa los hitos prioritarios.'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ borderTop: '1px solid #F0F0F0' }}>
+                      {allHitos.map((hito, i) => (
+                        <div key={hito.key}>
+                          <div className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50/50 transition-colors" style={i > 0 ? { borderTop: '1px solid #FAFAFA' } : {}}>
+                            {hito.auto ? (
+                              <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: hito.done ? '#059669' : '#F0F0F0' }}>
+                                {hito.done ? (
+                                  <svg className="w-3 h-3" fill="none" stroke="white" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                ) : (
+                                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#CCC' }}></div>
+                                )}
+                              </div>
+                            ) : (
+                              <button onClick={() => handleToggleHito(hito.key)} className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-colors" style={{ background: hito.done ? '#059669' : '#F0F0F0', cursor: 'pointer' }}>
+                                {hito.done ? (
+                                  <svg className="w-3 h-3" fill="none" stroke="white" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                ) : (
+                                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#CCC' }}></div>
+                                )}
+                              </button>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[12px] font-medium" style={{ color: hito.done ? '#333' : '#888' }}>{hito.label}</div>
+                              <div className="text-[10px]" style={{ color: hito.done ? '#999' : '#CCC' }}>
+                                {hito.desc}
+                                {!hito.auto && hito.done && hitosManuales[hito.key]?.fecha && (
+                                  <> &middot; {new Date(hitosManuales[hito.key].fecha!).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}</>
+                                )}
+                                {!hito.auto && hito.done && hitosManuales[hito.key]?.nota && (
+                                  <> &middot; {hitosManuales[hito.key].nota}</>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex-shrink-0">
+                              {hito.auto ? (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded font-medium" style={hito.done ? { background: '#ECFDF5', color: '#059669' } : { background: '#F5F5F5', color: '#CCC' }}>
+                                  {hito.done ? 'Auto' : 'Pendiente'}
+                                </span>
+                              ) : (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded font-medium cursor-pointer" onClick={() => !hito.done && handleToggleHito(hito.key)}
+                                  style={hito.done ? { background: '#ECFDF5', color: '#059669' } : { background: '#FFFBEB', color: '#D97706' }}>
+                                  {hito.done ? 'Completado' : 'Marcar'}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {editingHito === hito.key && (
+                            <div className="px-6 pb-3 flex gap-2 items-end" style={{ background: '#FAFAFA' }}>
+                              <div className="flex-1">
+                                <label className="text-[10px] font-medium block mb-1" style={{ color: '#888' }}>Nota o evidencia (opcional)</label>
+                                <input type="text" value={hitoNota} onChange={e => setHitoNota(e.target.value)}
+                                  className="w-full px-3 py-1.5 rounded-lg text-[11px] outline-none" style={{ border: '1px solid #E0E0E0' }}
+                                  placeholder="Ej: Acta de designación firmada el 15/03/2026" onKeyDown={e => e.key === 'Enter' && handleConfirmHito(hito.key)} />
+                              </div>
+                              <button onClick={() => handleConfirmHito(hito.key)} className="px-3 py-1.5 rounded-lg text-[11px] font-medium text-white" style={{ background: '#059669' }}>Confirmar</button>
+                              <button onClick={() => setEditingHito(null)} className="px-3 py-1.5 rounded-lg text-[11px] font-medium" style={{ background: '#F0F0F0', color: '#999' }}>Cancelar</button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Compliance Charts */}
               {empresaGuardada && (
