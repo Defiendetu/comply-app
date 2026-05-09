@@ -323,16 +323,17 @@ async function consultarProcuraduria(identificacion: string, apifyToken?: string
 }
 
 // ==========================================
-// Contraloría - Apify actor con resolución de reCAPTCHA
+// Contraloría - Lanza scraper y devuelve runId (asíncrono)
 // ==========================================
-async function consultarContraloria(identificacion: string, apifyToken?: string): Promise<ResultadoLista> {
-  const resultado: ResultadoLista = {
+async function iniciarContraloria(identificacion: string, apifyToken?: string): Promise<ResultadoLista & { runId?: string }> {
+  const resultado: ResultadoLista & { runId?: string } = {
     lista: 'Responsables fiscales - Contraloría',
     fuente: 'Contraloría General de la República',
     tipo: 'nacional',
-    resultado: 'sin_coincidencia',
+    resultado: 'pendiente' as any,
     coincidencias: [],
     url: 'https://cfiscal.contraloria.gov.co/certificados/certificadopersonanatural.aspx',
+    detalles: 'Consultando Contraloría (reCAPTCHA en proceso)...',
   };
 
   const captchaKey = process.env.TWOCAPTCHA_KEY || '';
@@ -354,7 +355,7 @@ async function consultarContraloria(identificacion: string, apifyToken?: string)
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cedula: identificacion, captcha_api_key: captchaKey }),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(15000),
       }
     );
 
@@ -365,62 +366,10 @@ async function consultarContraloria(identificacion: string, apifyToken?: string)
     }
 
     const runData = await runResp.json();
-    const runId = runData.data?.id;
-    if (!runId) {
+    resultado.runId = runData.data?.id;
+    if (!resultado.runId) {
       resultado.resultado = 'no_consultado';
       resultado.detalles = 'No se pudo obtener ID del run';
-      return resultado;
-    }
-
-    let attempts = 0;
-    while (attempts < 24) {
-      await new Promise(r => setTimeout(r, 5000));
-      const statusResp = await fetch(
-        `https://api.apify.com/v2/actor-runs/${runId}?token=${apifyToken}`
-      );
-      const statusData = await statusResp.json();
-      const status = statusData.data?.status;
-
-      if (status === 'SUCCEEDED') {
-        const datasetId = statusData.data?.defaultDatasetId;
-        const itemsResp = await fetch(
-          `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apifyToken}`
-        );
-        const items = await itemsResp.json();
-
-        if (items.length > 0) {
-          for (const item of items) {
-            if (item.es_responsable_fiscal) {
-              resultado.resultado = 'coincidencia_positiva';
-              resultado.detalles = item.texto_resultado || 'Aparece como responsable fiscal';
-              const registros = item.registros || [];
-              for (const reg of registros.slice(0, 3)) {
-                resultado.coincidencias.push(
-                  `Proceso: ${reg.proceso || 'N/A'} | Monto: ${reg.monto || 'N/A'} | Estado: ${reg.estado || 'N/A'}`
-                );
-              }
-            } else {
-              const txt = item.texto_resultado || '';
-              resultado.detalles = txt.includes('Resultado no determinado') || txt.includes('CDATA')
-                ? 'Certificado consultado — sin coincidencias'
-                : (txt || 'No aparece como responsable fiscal');
-            }
-          }
-        } else {
-          resultado.detalles = 'Consulta completada sin resultados';
-        }
-        break;
-      } else if (status === 'FAILED' || status === 'ABORTED') {
-        resultado.resultado = 'no_consultado';
-        resultado.detalles = `Scraper terminó con estado: ${status}`;
-        break;
-      }
-      attempts++;
-    }
-
-    if (attempts >= 24) {
-      resultado.resultado = 'no_consultado';
-      resultado.detalles = 'Timeout esperando respuesta del scraper (reCAPTCHA puede tardar)';
     }
   } catch (err: any) {
     resultado.resultado = 'no_consultado';
@@ -470,19 +419,24 @@ export async function POST(request: NextRequest) {
       detalles: 'Timeout — consulte manualmente en el enlace',
     };
 
-    const resultados: ResultadoLista[] = await Promise.all([
+    const [ofac, onu, peps, procuraduria, contraloria] = await Promise.all([
       consultarOFAC(nombre, identificacion),
       consultarONU(nombre),
       consultarPEPs(nombre, identificacion),
       conTimeout(consultarProcuraduria(identificacion, apifyToken), 45000, fallbackProcuraduria),
-      conTimeout(consultarContraloria(identificacion, apifyToken), 45000, fallbackContraloria),
+      iniciarContraloria(identificacion, apifyToken),
     ]);
+
+    const contraloriaRunId = contraloria.runId;
+    delete contraloria.runId;
+    const resultados: ResultadoLista[] = [ofac, onu, peps, procuraduria, contraloria];
 
     const totalCoincidencias = resultados.reduce((sum, r) => sum + r.coincidencias.length, 0);
     const hayPositiva = resultados.some(r => r.resultado === 'coincidencia_positiva');
     const hayParcial = resultados.some(r => r.resultado === 'coincidencia_parcial');
+    const pendientes = resultados.filter(r => (r.resultado as string) === 'pendiente').length;
     const noConsultadas = resultados.filter(r => r.resultado === 'no_consultado').length;
-    const consultadas = resultados.filter(r => r.resultado !== 'no_consultado').length;
+    const consultadas = resultados.filter(r => r.resultado !== 'no_consultado' && (r.resultado as string) !== 'pendiente').length;
 
     let conclusion: 'sin_coincidencia' | 'coincidencia_parcial' | 'coincidencia_positiva' | 'no_consultado' = 'sin_coincidencia';
     if (hayPositiva) conclusion = 'coincidencia_positiva';
@@ -511,6 +465,7 @@ export async function POST(request: NextRequest) {
       listas_no_consultadas: noConsultadas,
       recomendacion,
       resultados,
+      contraloriaRunId,
     });
   } catch (error: any) {
     console.error('Error consultando listas:', error);

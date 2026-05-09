@@ -263,10 +263,47 @@ export default function DashboardPage() {
     try {
       const screenResp = await fetch('/api/consultar-listas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: cpData.razon_social, identificacion: cpData.nit_cc }) });
       const screenResult = await screenResp.json();
-      if (screenResult.success) { setScreeningResultados(screenResult); }
+      if (screenResult.success) {
+        setScreeningResultados(screenResult);
+        if (screenResult.contraloriaRunId) {
+          pollContraloriaStatus(screenResult.contraloriaRunId, screenResult);
+        }
+      }
       else { setScreeningResultados({ error: true, message: screenResult.error }); }
     } catch (err) { setScreeningResultados({ error: true, message: 'Error de conexión' }); }
     setLoadingScreening(false);
+  };
+
+  const pollContraloriaStatus = async (runId: string, currentResults: any) => {
+    for (let i = 0; i < 18; i++) {
+      await new Promise(r => setTimeout(r, 10000));
+      try {
+        const resp = await fetch('/api/consultar-contraloria-status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runId }) });
+        const data = await resp.json();
+        if (data.status === 'completed' && data.resultado) {
+          setScreeningResultados((prev: any) => {
+            if (!prev || prev.error) return prev;
+            const updated = { ...prev };
+            updated.resultados = prev.resultados.map((r: any) =>
+              r.lista.includes('Contraloría') ? data.resultado : r
+            );
+            const noConsultadas = updated.resultados.filter((r: any) => r.resultado === 'no_consultado').length;
+            const consultadas = updated.resultados.filter((r: any) => r.resultado !== 'no_consultado' && r.resultado !== 'pendiente').length;
+            updated.listas_consultadas = consultadas;
+            updated.listas_no_consultadas = noConsultadas;
+            const hayPositiva = updated.resultados.some((r: any) => r.resultado === 'coincidencia_positiva');
+            const hayParcial = updated.resultados.some((r: any) => r.resultado === 'coincidencia_parcial');
+            if (hayPositiva) updated.conclusion = 'coincidencia_positiva';
+            else if (hayParcial) updated.conclusion = 'coincidencia_parcial';
+            else if (consultadas === 0) updated.conclusion = 'no_consultado';
+            else updated.conclusion = 'sin_coincidencia';
+            return updated;
+          });
+          return;
+        }
+        if (data.status === 'error') return;
+      } catch { return; }
+    }
   };
 
   const handleDescargarListasDoc = async () => {
@@ -2433,7 +2470,7 @@ export default function DashboardPage() {
                     {/* Results per list */}
                     <div className="space-y-2">
                       {(screeningResultados.resultados || []).map((r: any, i: number) => (
-                        <div key={i} className="p-3 rounded-lg" style={{ border: '1px solid #E5E7EB', background: r.resultado === 'coincidencia_positiva' ? '#FEF2F2' : r.resultado === 'coincidencia_parcial' ? '#FFFBEB' : r.resultado === 'no_consultado' ? '#FFFBEB' : '#FAFAFA' }}>
+                        <div key={i} className="p-3 rounded-lg" style={{ border: '1px solid #E5E7EB', background: r.resultado === 'coincidencia_positiva' ? '#FEF2F2' : r.resultado === 'coincidencia_parcial' ? '#FFFBEB' : r.resultado === 'no_consultado' ? '#FFFBEB' : r.resultado === 'pendiente' ? '#F0F9FF' : '#FAFAFA' }}>
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-2">
                               <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{
@@ -2443,10 +2480,10 @@ export default function DashboardPage() {
                               <span className="text-[13px] font-semibold" style={{ color: '#111' }}>{r.lista}</span>
                             </div>
                             <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{
-                              background: r.resultado === 'coincidencia_positiva' ? '#FEE2E2' : r.resultado === 'coincidencia_parcial' ? '#FEF3C7' : r.resultado === 'no_consultado' ? '#FEF3C7' : '#D1FAE5',
-                              color: r.resultado === 'coincidencia_positiva' ? '#991B1B' : r.resultado === 'coincidencia_parcial' ? '#92400E' : r.resultado === 'no_consultado' ? '#92400E' : '#065F46'
+                              background: r.resultado === 'coincidencia_positiva' ? '#FEE2E2' : r.resultado === 'coincidencia_parcial' ? '#FEF3C7' : r.resultado === 'no_consultado' ? '#FEF3C7' : r.resultado === 'pendiente' ? '#DBEAFE' : '#D1FAE5',
+                              color: r.resultado === 'coincidencia_positiva' ? '#991B1B' : r.resultado === 'coincidencia_parcial' ? '#92400E' : r.resultado === 'no_consultado' ? '#92400E' : r.resultado === 'pendiente' ? '#1E40AF' : '#065F46'
                             }}>
-                              {r.resultado === 'coincidencia_positiva' ? 'Coincidencia' : r.resultado === 'coincidencia_parcial' ? 'Parcial' : r.resultado === 'no_consultado' ? 'No consultado' : 'Limpio'}
+                              {r.resultado === 'coincidencia_positiva' ? 'Coincidencia' : r.resultado === 'coincidencia_parcial' ? 'Parcial' : r.resultado === 'no_consultado' ? 'No consultado' : r.resultado === 'pendiente' ? 'Consultando...' : 'Limpio'}
                             </span>
                           </div>
                           <p className="text-[10px]" style={{ color: '#888' }}>{r.fuente}</p>
