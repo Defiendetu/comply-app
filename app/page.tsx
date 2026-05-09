@@ -14,36 +14,18 @@ export default function LandingPage() {
   }, []);
 
   const modules = [
-    { name: 'Generacion Documental', desc: 'Manual de Medidas Minimas, Matriz de Riesgo y FCC generados automaticamente desde tu Camara de Comercio.', icon: (
-      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-    ), color: '#2563EB' },
-    { name: 'Screening de Listas', desc: 'Cruce automatico contra listas restrictivas nacionales e internacionales. OFAC, ONU, Procuraduria.', icon: (
-      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-    ), color: '#D97706' },
-    { name: 'Gestion de Trabajadores', desc: 'Declaraciones SAGRILAFT, control de capacitaciones y alertas de renovacion anual automaticas.', icon: (
-      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-    ), color: '#059669' },
-    { name: 'Monitoreo Continuo', desc: 'Vigilancia permanente de contrapartes con alertas automaticas cuando cambian las condiciones de riesgo.', icon: (
-      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-    ), color: '#7C3AED' },
-    { name: 'Reportes Regulatorios', desc: 'Generacion automatica de informes de gestion y certificaciones para la Superintendencia.', icon: (
-      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-    ), color: '#DC2626' },
+    { name: 'Generación Documental', desc: 'Manual de Medidas Mínimas, Matriz de Riesgo y FCC generados automáticamente desde tu Cámara de Comercio.', num: '01', color: '#111' },
+    { name: 'Screening de Listas', desc: 'Cruce automático contra listas restrictivas nacionales e internacionales. OFAC, ONU, Procuraduría y PEPs.', num: '02', color: '#111' },
+    { name: 'Gestión de Trabajadores', desc: 'Declaraciones SAGRILAFT, control de capacitaciones y alertas de renovación anual automáticas.', num: '03', color: '#111' },
+    { name: 'Monitoreo Continuo', desc: 'Vigilancia permanente de contrapartes con alertas automáticas cuando cambian las condiciones de riesgo.', num: '04', color: '#111' },
+    { name: 'Reportes Regulatorios', desc: 'Generación automática de informes de gestión y certificaciones para la Superintendencia.', num: '05', color: '#111' },
   ];
 
   const features = [
-    { title: 'Manual de Medidas Minimas', desc: 'Documento completo generado con IA, personalizado para tu sector APNFD y actividad economica.', accent: '#FEF3C7', accentBorder: '#FDE68A', iconColor: '#D97706', icon: (
-      <svg className="w-6 h-6" fill="none" stroke="#D97706" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
-    )},
-    { title: 'Matriz de Riesgo', desc: 'Evaluacion probabilidad-impacto con senales de alerta especificas y controles recomendados por sector.', accent: '#DCFCE7', accentBorder: '#BBF7D0', iconColor: '#059669', icon: (
-      <svg className="w-6 h-6" fill="none" stroke="#059669" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
-    )},
-    { title: 'Formulario FCC', desc: 'Conocimiento del cliente pre-diligenciado con datos extraidos automaticamente del certificado de camara.', accent: '#EDE9FE', accentBorder: '#DDD6FE', iconColor: '#7C3AED', icon: (
-      <svg className="w-6 h-6" fill="none" stroke="#7C3AED" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
-    )},
-    { title: 'Declaracion de Trabajadores', desc: 'Formato de declaracion LA/FT/FPADM con extraccion automatica de datos desde contratos laborales.', accent: '#DBEAFE', accentBorder: '#BFDBFE', iconColor: '#2563EB', icon: (
-      <svg className="w-6 h-6" fill="none" stroke="#2563EB" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-    )},
+    { title: 'Manual de Medidas Mínimas', desc: 'Documento completo generado con IA, personalizado para tu sector APNFD y actividad económica.', num: '01' },
+    { title: 'Matriz de Riesgo', desc: 'Evaluación probabilidad-impacto con señales de alerta específicas y controles recomendados por sector.', num: '02' },
+    { title: 'Formulario FCC', desc: 'Conocimiento del cliente pre-diligenciado con datos extraídos automáticamente del certificado de cámara.', num: '03' },
+    { title: 'Declaración de Trabajadores', desc: 'Formato de declaración LA/FT/FPADM con extracción automática de datos desde contratos laborales.', num: '04' },
   ];
 
   return (
@@ -71,8 +53,8 @@ export default function LandingPage() {
             <span className="text-[15px] font-semibold" style={{ color: '#111' }}>Comply</span>
           </Link>
           <div className="hidden md:flex items-center gap-7">
-            <a href="#modulos" className="text-[13px] font-medium" style={{ color: '#666' }}>Modulos</a>
-            <a href="#como" className="text-[13px] font-medium" style={{ color: '#666' }}>Como funciona</a>
+            <a href="#modulos" className="text-[13px] font-medium" style={{ color: '#666' }}>Módulos</a>
+            <a href="#como" className="text-[13px] font-medium" style={{ color: '#666' }}>Cómo funciona</a>
             <a href="#agentes" className="text-[13px] font-medium" style={{ color: '#666' }}>AI Agents</a>
           </div>
           <div className="flex items-center gap-3">
@@ -108,7 +90,7 @@ export default function LandingPage() {
                   Comenzar gratis
                 </Link>
                 <a href="#modulos" className="px-7 py-3.5 rounded-lg text-[14px] font-medium transition-all hover:bg-gray-50" style={{ color: '#333', border: '1px solid #E0E0E0' }}>
-                  Ver modulos
+                  Ver módulos
                 </a>
               </div>
             </>}
@@ -120,7 +102,7 @@ export default function LandingPage() {
       <section className="pb-16">
         <div className="max-w-4xl mx-auto px-6">
           <div className="flex flex-wrap items-center justify-center gap-6 text-[12px]" style={{ color: '#999' }}>
-            {['Capitulo X Circular Basica Juridica', 'Resolucion 100-006322 de 2023', 'Metodologia DAFP', 'Regimen de Medidas Minimas'].map((t, i) => (
+            {['Capítulo X Circular Básica Jurídica', 'Resolución 100-006322 de 2023', 'Metodología DAFP', 'Régimen de Medidas Mínimas'].map((t, i) => (
               <div key={i} className="flex items-center gap-1.5">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="#22C55E" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                 <span>{t}</span>
@@ -130,17 +112,16 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* MODULES CAROUSEL — Complif-style animated card */}
+      {/* MODULES CAROUSEL */}
       <section id="modulos" className="py-20 lg:py-28" style={{ background: '#FAFAFA' }}>
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-14">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.15em] mb-3" style={{ color: '#999' }}>Modulos</p>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.15em] mb-3" style={{ color: '#999' }}>Módulos</p>
             <h2 className="font-serif-display text-4xl lg:text-5xl" style={{ color: '#111' }}>
               Todo lo que necesitas para cumplir
             </h2>
           </div>
 
-          {/* Carousel container */}
           <div className="max-w-2xl mx-auto">
             <div className="rounded-2xl p-8 lg:p-10 relative overflow-hidden" style={{ background: '#fff', border: '1px solid #EBEBEB', minHeight: '200px' }}>
               {/* Progress dots */}
@@ -158,10 +139,10 @@ export default function LandingPage() {
                 ))}
               </div>
 
-              {/* Module content with animation */}
+              {/* Module content — number instead of icon */}
               <div key={activeModule} className="animate-module text-center">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5" style={{ background: modules[activeModule].color + '12', color: modules[activeModule].color }}>
-                  {modules[activeModule].icon}
+                <div className="text-[48px] font-serif-display mb-2" style={{ color: '#DDD' }}>
+                  {modules[activeModule].num}
                 </div>
                 <h3 className="text-xl font-semibold mb-3" style={{ color: '#111' }}>{modules[activeModule].name}</h3>
                 <p className="text-[15px] leading-relaxed max-w-md mx-auto" style={{ color: '#666' }}>{modules[activeModule].desc}</p>
@@ -185,7 +166,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* FEATURES GRID */}
+      {/* FEATURES GRID — Dark cards */}
       <section className="py-20 lg:py-28">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-14">
@@ -195,14 +176,15 @@ export default function LandingPage() {
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-5">
+          <div className="grid md:grid-cols-2 gap-4">
             {features.map((f, i) => (
-              <div key={i} className="rounded-2xl p-7 transition-all hover:shadow-lg hover:shadow-gray-100" style={{ background: f.accent, border: `1px solid ${f.accentBorder}` }}>
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style={{ background: '#fff' }}>
-                  {f.icon}
+              <div key={i} className="rounded-2xl p-7 transition-all hover:bg-[#1a1a1a]" style={{ background: '#111', border: '1px solid #222' }}>
+                <div className="flex items-center justify-between mb-5">
+                  <span className="text-[11px] font-semibold tracking-wider" style={{ color: '#555' }}>{f.num}</span>
+                  <div className="w-8 h-[1px]" style={{ background: '#333' }}></div>
                 </div>
-                <h3 className="text-[17px] font-semibold mb-2" style={{ color: '#111' }}>{f.title}</h3>
-                <p className="text-[14px] leading-relaxed" style={{ color: '#555' }}>{f.desc}</p>
+                <h3 className="text-[17px] font-semibold mb-2 text-white">{f.title}</h3>
+                <p className="text-[14px] leading-relaxed" style={{ color: '#888' }}>{f.desc}</p>
               </div>
             ))}
           </div>
@@ -220,8 +202,8 @@ export default function LandingPage() {
           </div>
           <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             {[
-              { step: '1', title: 'Sube tu documento', desc: 'Carga el Certificado de Camara de Comercio de tu empresa en formato PDF.' },
-              { step: '2', title: 'La IA analiza', desc: 'Extraemos datos, identificamos tu sector APNFD y evaluamos riesgos especificos.' },
+              { step: '1', title: 'Sube tu documento', desc: 'Carga el Certificado de Cámara de Comercio de tu empresa en formato PDF.' },
+              { step: '2', title: 'La IA analiza', desc: 'Extraemos datos, identificamos tu sector APNFD y evaluamos riesgos específicos.' },
               { step: '3', title: 'Descarga todo', desc: 'Recibe Manual, Matriz de Riesgo y FCC personalizados y listos para presentar.' },
             ].map((s, i) => (
               <div key={i} className="text-center">
@@ -250,8 +232,8 @@ export default function LandingPage() {
 
           <div className="grid md:grid-cols-3 gap-5">
             {[
-              { name: 'Vigia', role: 'Screening Agent', desc: 'Cruza contrapartes contra 300+ listas restrictivas. OFAC, ONU, Procuraduria y PEPs.', color: '#3B82F6' },
-              { name: 'Centinela', role: 'Monitoring Agent', desc: 'Monitoreo continuo de operaciones. Detecta patrones inusuales y evalua riesgos.', color: '#F59E0B' },
+              { name: 'Vigía', role: 'Screening Agent', desc: 'Cruza contrapartes contra 300+ listas restrictivas. OFAC, ONU, Procuraduría y PEPs.', color: '#3B82F6' },
+              { name: 'Centinela', role: 'Monitoring Agent', desc: 'Monitoreo continuo de operaciones. Detecta patrones inusuales y evalúa riesgos.', color: '#F59E0B' },
               { name: 'Cumplidor', role: 'Compliance Agent', desc: 'Genera reportes regulatorios y gestiona el calendario de obligaciones.', color: '#10B981' },
             ].map((agent, i) => (
               <div key={i} className="rounded-2xl p-6 transition-all hover:bg-white/[0.06]" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -260,7 +242,7 @@ export default function LandingPage() {
                 <p className="text-[11px] font-medium uppercase tracking-wider mb-4" style={{ color: '#555' }}>{agent.role}</p>
                 <p className="text-[14px] leading-relaxed" style={{ color: '#888' }}>{agent.desc}</p>
                 <div className="mt-5 inline-flex items-center gap-1 text-[12px] font-medium" style={{ color: agent.color }}>
-                  Proximamente
+                  Próximamente
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                 </div>
               </div>
@@ -281,9 +263,9 @@ export default function LandingPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {[
               { name: 'Inmobiliario', icon: '🏢' },
-              { name: 'Juridico', icon: '⚖️' },
+              { name: 'Jurídico', icon: '⚖️' },
               { name: 'Contable', icon: '📒' },
-              { name: 'Tecnologia', icon: '💻' },
+              { name: 'Tecnología', icon: '💻' },
               { name: 'Comercio', icon: '🏪' },
               { name: 'Otros', icon: '🏭' },
             ].map((s, i) => (
@@ -304,7 +286,7 @@ export default function LandingPage() {
               Cumplimiento sin fricciones,<br/>empieza hoy
             </h2>
             <p className="text-[15px] mb-8 max-w-md mx-auto" style={{ color: '#888' }}>
-              Unete a las empresas que estan automatizando su SAGRILAFT con inteligencia artificial.
+              Únete a las empresas que están automatizando su SAGRILAFT con inteligencia artificial.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link href="/solicitar" className="px-7 py-3.5 rounded-lg text-[14px] font-semibold text-black transition-all hover:opacity-90" style={{ background: '#fff' }}>
@@ -333,8 +315,8 @@ export default function LandingPage() {
             </div>
             <div className="flex gap-12">
               {[
-                { title: 'Producto', items: ['Generacion Documental', 'Screening', 'Monitoreo', 'Reportes'] },
-                { title: 'Legal', items: ['Terminos de Servicio', 'Politica de Privacidad', 'Tratamiento de Datos'] },
+                { title: 'Producto', items: ['Generación Documental', 'Screening', 'Monitoreo', 'Reportes'] },
+                { title: 'Legal', items: ['Términos de Servicio', 'Política de Privacidad', 'Tratamiento de Datos'] },
               ].map((col, i) => (
                 <div key={i}>
                   <h4 className="text-[11px] font-semibold uppercase tracking-[0.1em] mb-3" style={{ color: '#999' }}>{col.title}</h4>
@@ -348,8 +330,8 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="mt-10 pt-6 flex items-center justify-between" style={{ borderTop: '1px solid #F0F0F0' }}>
-            <div className="text-[12px]" style={{ color: '#BBB' }}>2026 Comply SAGRILAFT. Todos los derechos reservados.</div>
-            <div className="text-[12px]" style={{ color: '#BBB' }}>Hecho en Colombia</div>
+            <div className="text-[12px]" style={{ color: '#BBB' }}>© 2026 Comply SAGRILAFT. Todos los derechos reservados.</div>
+            <div className="text-[12px]" style={{ color: '#BBB' }}>Hecho en Colombia 🇨🇴</div>
           </div>
         </div>
       </footer>
