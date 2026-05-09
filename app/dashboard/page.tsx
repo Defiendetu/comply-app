@@ -71,8 +71,10 @@ export default function DashboardPage() {
   // Trabajadores
   const [trabajadores, setTrabajadores] = useState<any[]>([]);
   const [showNuevoTrabajador, setShowNuevoTrabajador] = useState(false);
-  const [trabajadorForm, setTrabajadorForm] = useState({ nombre: '', cedula: '', cargo: '', area: '', fecha_ingreso: '' });
+  const [trabajadorForm, setTrabajadorForm] = useState({ nombre: '', cedula: '', cargo: '', area: '', fecha_ingreso: '', contratoBase64: '', contratoNombre: '' });
   const [loadingDeclaracion, setLoadingDeclaracion] = useState<string | null>(null);
+  const [loadingExtraccion, setLoadingExtraccion] = useState(false);
+  const trabajadorFileRef = useRef<HTMLInputElement>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -334,6 +336,42 @@ export default function DashboardPage() {
     } catch (err) { console.error('Error generating FCC:', err); setError('Error de conexión al generar FCC'); }
   };
 
+  // Handle contract upload for worker
+  const handleContratoTrabajador = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    if (file.type !== 'application/pdf') { setError('Solo archivos PDF'); return; }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const b = (reader.result as string).split(',')[1];
+      setTrabajadorForm(p => ({ ...p, contratoBase64: b, contratoNombre: file.name }));
+      // Auto-extract
+      setLoadingExtraccion(true); setError('');
+      try {
+        const resp = await fetch('/api/extraer-trabajador', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contratoBase64: b }),
+        });
+        const result = await resp.json();
+        if (result.success && result.trabajador) {
+          const t = result.trabajador;
+          setTrabajadorForm(p => ({
+            ...p,
+            nombre: t.nombre || p.nombre,
+            cedula: t.cedula || p.cedula,
+            cargo: t.cargo || p.cargo,
+            area: t.area || p.area,
+            fecha_ingreso: t.fecha_ingreso || p.fecha_ingreso,
+          }));
+        } else {
+          setError('No se pudieron extraer datos. Completa manualmente.');
+        }
+      } catch { setError('Error de conexión. Completa manualmente.'); }
+      finally { setLoadingExtraccion(false); }
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Save new worker (as contraparte tipo_relacion=empleado)
   const handleSaveTrabajador = async () => {
     if (!trabajadorForm.nombre) { setError('Ingresa el nombre del trabajador'); return; }
@@ -362,7 +400,7 @@ export default function DashboardPage() {
         setTrabajadores(prev => [saved, ...prev]);
         setContrapartes(prev => [saved, ...prev]);
         setShowNuevoTrabajador(false);
-        setTrabajadorForm({ nombre: '', cedula: '', cargo: '', area: '', fecha_ingreso: '' });
+        setTrabajadorForm({ nombre: '', cedula: '', cargo: '', area: '', fecha_ingreso: '', contratoBase64: '', contratoNombre: '' });
         if (user) await logActivity(empresaGuardada.id, user.email, 'registrar_trabajador', `Trabajador: ${saved.razon_social}`);
       }
     } catch (err) { setError(err instanceof Error ? err.message : 'Error al guardar'); }
@@ -861,31 +899,54 @@ export default function DashboardPage() {
                     <h3 className="font-bold text-[15px]" style={{ color: '#18181B' }}>Registrar Nuevo Trabajador</h3>
                     <button onClick={() => setShowNuevoTrabajador(false)} className="text-[20px]" style={{ color: '#A1A1AA' }}>×</button>
                   </div>
+                  {/* Contract upload */}
+                  <div className="mb-4 p-4 rounded-xl" style={{ background: '#F8FAFC', border: '1px dashed #C7D2FE' }}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-[13px]" style={{ color: '#3F3F46' }}>Contrato laboral <span className="font-normal text-[11px]" style={{ color: '#A1A1AA' }}>(opcional)</span></div>
+                        <div className="text-[11px] mt-0.5" style={{ color: '#71717A' }}>Sube el contrato y la IA extraerá nombre, cédula, cargo, área y fecha de ingreso</div>
+                      </div>
+                      <button onClick={() => trabajadorFileRef.current?.click()} disabled={loadingExtraccion} className="px-3 py-1.5 rounded-lg text-[12px] font-semibold disabled:opacity-50" style={{ background: '#EEF2FF', color: '#6366F1', border: '1px solid #C7D2FE' }}>
+                        {loadingExtraccion ? '🔍 Extrayendo datos...' : trabajadorForm.contratoBase64 ? '✅ ' + trabajadorForm.contratoNombre : 'Subir PDF'}
+                      </button>
+                      <input type="file" ref={trabajadorFileRef} onChange={handleContratoTrabajador} accept=".pdf" className="hidden" />
+                    </div>
+                    {loadingExtraccion && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-[12px]" style={{ color: '#6366F1' }}>Analizando contrato con IA...</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Manual fields (pre-filled if extracted) */}
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>Nombre completo *</label>
-                      <input type="text" value={trabajadorForm.nombre} onChange={e => setTrabajadorForm(p => ({...p, nombre: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: '#E4E4E7' }} placeholder="Juan Pérez López" />
+                      <input type="text" value={trabajadorForm.nombre} onChange={e => setTrabajadorForm(p => ({...p, nombre: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: trabajadorForm.nombre && trabajadorForm.contratoBase64 ? '#6366F1' : '#E4E4E7', background: trabajadorForm.nombre && trabajadorForm.contratoBase64 ? '#EEF2FF' : '#fff' }} placeholder="Juan Pérez López" />
                     </div>
                     <div>
                       <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>Cédula *</label>
-                      <input type="text" value={trabajadorForm.cedula} onChange={e => setTrabajadorForm(p => ({...p, cedula: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: '#E4E4E7' }} placeholder="1023456789" />
+                      <input type="text" value={trabajadorForm.cedula} onChange={e => setTrabajadorForm(p => ({...p, cedula: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: trabajadorForm.cedula && trabajadorForm.contratoBase64 ? '#6366F1' : '#E4E4E7', background: trabajadorForm.cedula && trabajadorForm.contratoBase64 ? '#EEF2FF' : '#fff' }} placeholder="1023456789" />
                     </div>
                     <div>
                       <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>Cargo</label>
-                      <input type="text" value={trabajadorForm.cargo} onChange={e => setTrabajadorForm(p => ({...p, cargo: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: '#E4E4E7' }} placeholder="Asesor Comercial" />
+                      <input type="text" value={trabajadorForm.cargo} onChange={e => setTrabajadorForm(p => ({...p, cargo: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: trabajadorForm.cargo && trabajadorForm.contratoBase64 ? '#6366F1' : '#E4E4E7', background: trabajadorForm.cargo && trabajadorForm.contratoBase64 ? '#EEF2FF' : '#fff' }} placeholder="Asesor Comercial" />
                     </div>
                     <div>
                       <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>Área</label>
-                      <input type="text" value={trabajadorForm.area} onChange={e => setTrabajadorForm(p => ({...p, area: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: '#E4E4E7' }} placeholder="Ventas" />
+                      <input type="text" value={trabajadorForm.area} onChange={e => setTrabajadorForm(p => ({...p, area: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: trabajadorForm.area && trabajadorForm.contratoBase64 ? '#6366F1' : '#E4E4E7', background: trabajadorForm.area && trabajadorForm.contratoBase64 ? '#EEF2FF' : '#fff' }} placeholder="Ventas" />
                     </div>
                     <div>
                       <label className="text-[12px] font-semibold block mb-1" style={{ color: '#3F3F46' }}>Fecha de ingreso</label>
-                      <input type="date" value={trabajadorForm.fecha_ingreso} onChange={e => setTrabajadorForm(p => ({...p, fecha_ingreso: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: '#E4E4E7' }} />
+                      <input type="date" value={trabajadorForm.fecha_ingreso} onChange={e => setTrabajadorForm(p => ({...p, fecha_ingreso: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] border outline-none focus:border-indigo-400" style={{ borderColor: trabajadorForm.fecha_ingreso && trabajadorForm.contratoBase64 ? '#6366F1' : '#E4E4E7', background: trabajadorForm.fecha_ingreso && trabajadorForm.contratoBase64 ? '#EEF2FF' : '#fff' }} />
                     </div>
                   </div>
                   {error && <div className="mb-4 p-3 rounded-lg text-[13px] text-red-700" style={{ background: '#FEF2F2' }}>{error}</div>}
                   <div className="flex gap-3">
-                    <button onClick={handleSaveTrabajador} className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>Registrar trabajador</button>
+                    <button onClick={handleSaveTrabajador} disabled={loadingExtraccion} className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white disabled:opacity-50" style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>
+                      {loadingExtraccion ? 'Extrayendo datos...' : 'Registrar trabajador'}
+                    </button>
                     <button onClick={() => setShowNuevoTrabajador(false)} className="px-4 py-2.5 rounded-xl text-[13px] font-semibold" style={{ border: '1px solid #E4E4E7', color: '#71717A' }}>Cancelar</button>
                   </div>
                 </div>
