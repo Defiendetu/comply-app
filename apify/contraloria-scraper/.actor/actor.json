@@ -1,0 +1,9 @@
+{
+    "actorSpecification": 1,
+    "name": "contraloria-scraper",
+    "title": "Contraloría - Antecedentes Fiscales",
+    "description": "Consulta automática de antecedentes fiscales en la Contraloría General de la Nación de Colombia",
+    "version": "1.0.0",
+    "input": "./INPUT_SCHEMA.json",
+    "dockerfile": "../Dockerfile"
+}

@@ -1,0 +1,31 @@
+{
+    "title": "Contraloría - Consulta Antecedentes Fiscales",
+    "description": "Consulta antecedentes fiscales en la Contraloría General de la Nación",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+        "cedula": {
+            "title": "Número de Documento",
+            "type": "string",
+            "description": "Número de identificación de la persona a consultar",
+            "editor": "textfield"
+        },
+        "tipo_documento": {
+            "title": "Tipo de Documento",
+            "type": "string",
+            "description": "Código del tipo de documento",
+            "default": "CC",
+            "enum": ["CC", "CE", "TI", "PA", "PEP", "PPT"],
+            "enumTitles": ["Cédula de Ciudadanía", "Cédula de Extranjería", "Tarjeta de Identidad", "Pasaporte", "PEP", "PPT"],
+            "editor": "select"
+        },
+        "captcha_api_key": {
+            "title": "2captcha API Key",
+            "type": "string",
+            "description": "API key de 2captcha.com para resolver el reCAPTCHA",
+            "editor": "textfield",
+            "isSecret": true
+        }
+    },
+    "required": ["cedula", "captcha_api_key"]
+}

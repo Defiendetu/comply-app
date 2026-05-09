@@ -1,0 +1,12 @@
+{
+    "name": "contraloria-scraper",
+    "version": "1.0.0",
+    "description": "Consulta de antecedentes fiscales en la Contraloría General de la Nación",
+    "type": "module",
+    "main": "main.js",
+    "dependencies": {
+        "apify": "^3.1.0",
+        "crawlee": "^3.5.0",
+        "playwright": "^1.40.0"
+    }
+}
