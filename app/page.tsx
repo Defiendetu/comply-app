@@ -22,10 +22,10 @@ export default function LandingPage() {
   ];
 
   const features = [
-    { title: 'Manual de Medidas Mínimas', desc: 'Documento completo generado con IA, personalizado para tu sector APNFD y actividad económica.', num: '01' },
-    { title: 'Matriz de Riesgo', desc: 'Evaluación probabilidad-impacto con señales de alerta específicas y controles recomendados por sector.', num: '02' },
-    { title: 'Formulario FCC', desc: 'Conocimiento del cliente pre-diligenciado con datos extraídos automáticamente del certificado de cámara.', num: '03' },
-    { title: 'Declaración de Trabajadores', desc: 'Formato de declaración LA/FT/FPADM con extracción automática de datos desde contratos laborales.', num: '04' },
+    { title: 'Manual de Medidas Mínimas', desc: 'Documento completo generado con IA, personalizado para tu sector APNFD y actividad económica.', num: '01', bg: '#0A1E33', accent: '#3B82F6', border: '#1E3A5F' },
+    { title: 'Matriz de Riesgo', desc: 'Evaluación probabilidad-impacto con señales de alerta específicas y controles recomendados por sector.', num: '02', bg: '#0A2E1A', accent: '#22C55E', border: '#1A4D2E' },
+    { title: 'Formulario FCC', desc: 'Conocimiento del cliente pre-diligenciado con datos extraídos automáticamente del certificado de cámara.', num: '03', bg: '#1A0F2E', accent: '#A78BFA', border: '#2D1B4E' },
+    { title: 'Declaración de Trabajadores', desc: 'Formato de declaración LA/FT/FPADM con extracción automática de datos desde contratos laborales.', num: '04', bg: '#2D1B0E', accent: '#F59E0B', border: '#4D2E1A' },
   ];
 
   return (
@@ -178,13 +178,13 @@ export default function LandingPage() {
 
           <div className="grid md:grid-cols-2 gap-4">
             {features.map((f, i) => (
-              <div key={i} className="rounded-2xl p-7 transition-all hover:bg-[#1a1a1a]" style={{ background: '#111', border: '1px solid #222' }}>
+              <div key={i} className="rounded-2xl p-7 transition-all hover:scale-[1.02]" style={{ background: f.bg, border: `1px solid ${f.border}` }}>
                 <div className="flex items-center justify-between mb-5">
-                  <span className="text-[11px] font-semibold tracking-wider" style={{ color: '#555' }}>{f.num}</span>
-                  <div className="w-8 h-[1px]" style={{ background: '#333' }}></div>
+                  <span className="text-[11px] font-semibold tracking-wider" style={{ color: f.accent }}>{f.num}</span>
+                  <div className="w-8 h-[1px]" style={{ background: f.border }}></div>
                 </div>
                 <h3 className="text-[17px] font-semibold mb-2 text-white">{f.title}</h3>
-                <p className="text-[14px] leading-relaxed" style={{ color: '#888' }}>{f.desc}</p>
+                <p className="text-[14px] leading-relaxed" style={{ color: `${f.accent}99` }}>{f.desc}</p>
               </div>
             ))}
           </div>

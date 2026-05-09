@@ -560,20 +560,24 @@ export default function DashboardPage() {
               {/* Quick actions */}
               <div className="grid md:grid-cols-3 gap-4 mb-6">
                 {[
-                  { title: 'Generar Documentos', desc: empresaGuardada ? 'Nuevos documentos con datos guardados' : 'Sube tu Cámara de Comercio', view: 'documentos' as ActiveView, icon: (
-                    <svg className="w-5 h-5" fill="none" stroke="#2563EB" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                  ), iconBg: '#DBEAFE' },
-                  { title: 'Contrapartes', desc: 'Registra y genera FCC personalizados', view: 'contrapartes' as ActiveView, icon: (
-                    <svg className="w-5 h-5" fill="none" stroke="#D97706" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                  ), iconBg: '#FEF3C7' },
-                  { title: 'Trabajadores', desc: 'Declaraciones y capacitaciones', view: 'trabajadores' as ActiveView, icon: (
-                    <svg className="w-5 h-5" fill="none" stroke="#059669" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                  ), iconBg: '#DCFCE7' },
+                  { title: 'Generar Documentos', desc: empresaGuardada ? 'Nuevos documentos con datos guardados' : 'Sube tu Cámara de Comercio', view: 'documentos' as ActiveView, bg: '#0F2942', accent: '#3B82F6', icon: (
+                    <svg className="w-5 h-5" fill="none" stroke="#60A5FA" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  ) },
+                  { title: 'Contrapartes', desc: 'Registra y genera FCC personalizados', view: 'contrapartes' as ActiveView, bg: '#2D1B0E', accent: '#F59E0B', icon: (
+                    <svg className="w-5 h-5" fill="none" stroke="#FBBF24" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  ) },
+                  { title: 'Trabajadores', desc: 'Declaraciones y capacitaciones', view: 'trabajadores' as ActiveView, bg: '#0B2E1F', accent: '#10B981', icon: (
+                    <svg className="w-5 h-5" fill="none" stroke="#34D399" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                  ) },
                 ].map((card, i) => (
-                  <div key={i} onClick={() => setActiveView(card.view)} className="rounded-xl p-5 cursor-pointer transition-all hover:shadow-md" style={cardStyle}>
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-3" style={{ background: card.iconBg }}>{card.icon}</div>
-                    <h3 className="font-semibold text-[14px] mb-1" style={{ color: '#111' }}>{card.title}</h3>
-                    <p className="text-[12px]" style={{ color: '#999' }}>{card.desc}</p>
+                  <div key={i} onClick={() => setActiveView(card.view)} className="rounded-xl p-5 cursor-pointer transition-all hover:scale-[1.02] hover:shadow-lg" style={{ background: card.bg, border: `1px solid ${card.accent}22` }}>
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-3" style={{ background: `${card.accent}15` }}>{card.icon}</div>
+                    <h3 className="font-semibold text-[14px] mb-1 text-white">{card.title}</h3>
+                    <p className="text-[12px]" style={{ color: `${card.accent}99` }}>{card.desc}</p>
+                    <div className="mt-3 flex items-center gap-1 text-[11px] font-medium" style={{ color: card.accent }}>
+                      <span>Abrir</span>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                    </div>
                   </div>
                 ))}
               </div>
