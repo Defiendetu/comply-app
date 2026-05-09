@@ -323,98 +323,63 @@ async function consultarProcuraduria(identificacion: string, apifyToken?: string
 }
 
 // ==========================================
-// Contraloría - Apify actor
+// Contraloría - Boletín de Responsables Fiscales (datos.gov.co)
 // ==========================================
-async function consultarContraloria(identificacion: string, apifyToken?: string): Promise<ResultadoLista> {
+async function consultarContraloria(nombre: string, identificacion?: string): Promise<ResultadoLista> {
   const resultado: ResultadoLista = {
     lista: 'Responsables fiscales - Contraloría',
     fuente: 'Contraloría General de la República',
     tipo: 'nacional',
     resultado: 'sin_coincidencia',
     coincidencias: [],
-    url: 'https://www.contraloria.gov.co/web/guest/persona-natural',
+    url: 'https://www.datos.gov.co/Funci-n-p-blica/Bolet-n-de-Responsables-Fiscales/jr8e-e8tu',
   };
 
-  if (!apifyToken || !identificacion) {
-    resultado.resultado = 'no_consultado';
-    resultado.detalles = 'Consulta manual requerida (sin token Apify o sin identificación)';
-    return resultado;
-  }
-
   try {
-    const runResp = await fetch(
-      `https://api.apify.com/v2/acts/daytool_colombia~contraloria-scraper/runs?token=${apifyToken}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cedula: identificacion }),
-        signal: AbortSignal.timeout(30000),
-      }
-    );
+    let url: string;
+    if (identificacion) {
+      url = `https://www.datos.gov.co/resource/jr8e-e8tu.json?n_mero_de_identificaci_n=${encodeURIComponent(identificacion)}&$limit=10`;
+    } else {
+      url = `https://www.datos.gov.co/resource/jr8e-e8tu.json?$q=${encodeURIComponent(nombre)}&$limit=10`;
+    }
 
-    if (!runResp.ok) {
+    const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!resp.ok) {
       resultado.resultado = 'no_consultado';
-      resultado.detalles = 'Error iniciando scraper de Contraloría';
+      resultado.detalles = 'No se pudo acceder al Boletín de Responsables Fiscales';
       return resultado;
     }
 
-    const runData = await runResp.json();
-    const runId = runData.data?.id;
-    if (!runId) {
-      resultado.resultado = 'no_consultado';
-      resultado.detalles = 'No se pudo obtener ID del run';
-      return resultado;
-    }
+    const data = await resp.json();
 
-    let attempts = 0;
-    while (attempts < 12) {
-      await new Promise(r => setTimeout(r, 5000));
-      const statusResp = await fetch(
-        `https://api.apify.com/v2/actor-runs/${runId}?token=${apifyToken}`
-      );
-      const statusData = await statusResp.json();
-      const status = statusData.data?.status;
+    for (const item of data) {
+      const entidad = item.raz_n_social_de_la_entidad || '';
+      const sancion = item.tipo_de_sanci_n_multa || '';
+      const monto = item.monto_de_la_multa_o_sanci || '';
+      const detalle = item.descripci_n_o_detalle_resumen || '';
 
-      if (status === 'SUCCEEDED') {
-        const datasetId = statusData.data?.defaultDatasetId;
-        const itemsResp = await fetch(
-          `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apifyToken}`
+      if (identificacion) {
+        resultado.resultado = 'coincidencia_positiva';
+        resultado.coincidencias.push(
+          `${entidad} | ${sancion} | Monto: ${monto}${detalle ? ' | ' + detalle.substring(0, 100) : ''}`
         );
-        const items = await itemsResp.json();
-
-        if (items.length > 0) {
-          for (const item of items) {
-            if (item.es_responsable_fiscal || item.registros?.length > 0) {
-              resultado.resultado = 'coincidencia_positiva';
-              const registros = item.registros || [];
-              for (const reg of registros.slice(0, 3)) {
-                resultado.coincidencias.push(
-                  `Proceso: ${reg.proceso || 'N/A'} | Monto: ${reg.monto || 'N/A'} | Estado: ${reg.estado || 'N/A'}`
-                );
-              }
-            } else {
-              resultado.detalles = 'No aparece como responsable fiscal';
-            }
-          }
-        } else {
-          resultado.detalles = 'Consulta completada sin resultados';
+      } else {
+        const sim = similitud(nombre, entidad);
+        if (sim >= 0.7) {
+          resultado.resultado = sim >= 0.95 ? 'coincidencia_positiva' : 'coincidencia_parcial';
+          resultado.coincidencias.push(
+            `${entidad} | ${sancion} | Monto: ${monto}`
+          );
         }
-        break;
-      } else if (status === 'FAILED' || status === 'ABORTED') {
-        resultado.resultado = 'no_consultado';
-        resultado.detalles = `Scraper terminó con estado: ${status}`;
-        break;
       }
-      attempts++;
     }
 
-    if (attempts >= 12) {
-      resultado.resultado = 'no_consultado';
-      resultado.detalles = 'Timeout esperando respuesta del scraper';
+    if (resultado.coincidencias.length === 0 && data.length === 0) {
+      resultado.detalles = 'No aparece en el Boletín de Responsables Fiscales';
     }
   } catch (err: any) {
     resultado.resultado = 'no_consultado';
-    resultado.detalles = `Error: ${err.message}`;
+    resultado.detalles = `Error consultando Contraloría: ${err.message}`;
   }
 
   return resultado;
@@ -425,7 +390,9 @@ async function consultarContraloria(identificacion: string, apifyToken?: string)
 // ==========================================
 export async function POST(request: NextRequest) {
   try {
-    const { nombre, identificacion } = await request.json();
+    const body = await request.json();
+    const nombre = body.nombre;
+    const identificacion = body.identificacion ? body.identificacion.replace(/[\.\-\s,]/g, '') : '';
     const apifyToken = process.env.APIFY_TOKEN || '';
 
     if (!nombre || nombre.length < 2) {
@@ -437,7 +404,7 @@ export async function POST(request: NextRequest) {
       consultarONU(nombre),
       consultarPEPs(nombre, identificacion),
       consultarProcuraduria(identificacion, apifyToken),
-      consultarContraloria(identificacion, apifyToken),
+      consultarContraloria(nombre, identificacion),
     ]);
 
     const totalCoincidencias = resultados.reduce((sum, r) => sum + r.coincidencias.length, 0);
