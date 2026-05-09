@@ -25,8 +25,8 @@ const C = {
   AMARILLO_FONDO: 'FFFBEB',
 };
 
-const border = { style: BorderStyle.SINGLE as const, size: 1, color: C.AZUL_SUAVE };
-const borders = { top: border, bottom: border, left: border, right: border };
+const borderStyle = { style: BorderStyle.SINGLE, size: 1, color: C.AZUL_SUAVE };
+const borders = { top: borderStyle, bottom: borderStyle, left: borderStyle, right: borderStyle };
 
 function headerCell(text: string, width: number, opts: { colspan?: number } = {}) {
   return new TableCell({
