@@ -903,7 +903,7 @@ export default function DashboardPage() {
                     <div>
                       <label className="text-[12px] font-medium block mb-1.5" style={{ color: '#555' }}>Tipo de relación</label>
                       <div className="flex gap-2">
-                        {['cliente', 'proveedor', 'empleado'].map(t => (
+                        {['cliente', 'proveedor', 'aliado'].map(t => (
                           <button key={t} onClick={() => setContraparteForm(p => ({...p, tipo_relacion: t}))} className="flex-1 px-3 py-2 rounded-lg text-[12px] font-medium transition-all"
                             style={contraparteForm.tipo_relacion === t ? { background: '#111', color: '#fff' } : { background: '#F5F5F5', color: '#666' }}>
                             {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -915,8 +915,15 @@ export default function DashboardPage() {
                   <div className="mb-4 p-4 rounded-lg" style={{ background: '#FAFAFA', border: '1px dashed #DDD' }}>
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="font-medium text-[13px]" style={{ color: '#333' }}>Certificado de Cámara de Comercio <span className="font-normal text-[11px]" style={{ color: '#BBB' }}>(opcional)</span></div>
-                        <div className="text-[11px] mt-0.5" style={{ color: '#999' }}>Sube el certificado y la IA extraera los datos</div>
+                        <div className="font-medium text-[13px]" style={{ color: '#333' }}>
+                          {contraparteForm.tipo_persona === 'juridica' ? 'Certificado de Cámara de Comercio' : 'RUT o Cédula'}{' '}
+                          <span className="font-normal text-[11px]" style={{ color: '#BBB' }}>(opcional)</span>
+                        </div>
+                        <div className="text-[11px] mt-0.5" style={{ color: '#999' }}>
+                          {contraparteForm.tipo_persona === 'juridica'
+                            ? 'Sube el certificado y la IA extraerá los datos'
+                            : 'Sube el RUT o cédula en PDF y la IA extraerá los datos'}
+                        </div>
                       </div>
                       <button onClick={() => contraparteFileRef.current?.click()} className="px-3 py-1.5 rounded-lg text-[12px] font-medium" style={{ background: '#F0F0F0', color: '#555' }}>
                         {contraparteForm.certificadoBase64 ? contraparteForm.certificadoNombre : 'Subir PDF'}
