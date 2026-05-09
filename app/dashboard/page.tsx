@@ -112,6 +112,10 @@ export default function DashboardPage() {
   const [loadingReporte, setLoadingReporte] = useState(false);
   const [loadingClasificacion, setLoadingClasificacion] = useState(false);
   const [reporteFiltro, setReporteFiltro] = useState('todos');
+  // Screening de listas restrictivas
+  const [screeningResultados, setScreeningResultados] = useState<any>(null);
+  const [loadingScreening, setLoadingScreening] = useState(false);
+  const [screeningContraparte, setScreeningContraparte] = useState<any>(null);
   const trabajadorFileRef = useRef<HTMLInputElement>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -252,13 +256,27 @@ export default function DashboardPage() {
 
   const handleGenerarListasRestrictivas = async (contraparte: any) => {
     if (!empresaGuardada) return;
+    const cpData = { ...contraparte, ...(contraparte.datos_extraidos || {}), razon_social: contraparte.razon_social || contraparte.datos_extraidos?.razon_social || '', nit_cc: contraparte.nit_cc || contraparte.datos_extraidos?.nit_cc || contraparte.datos_extraidos?.nit || '', representante_legal: contraparte.representante_legal || contraparte.datos_extraidos?.representante_legal || '', ciudad: contraparte.ciudad || contraparte.datos_extraidos?.ciudad || '', direccion: contraparte.datos_extraidos?.direccion || '' };
+    setScreeningContraparte({ ...cpData, id: contraparte.id });
+    setLoadingScreening(true);
+    setScreeningResultados(null);
     try {
-      const cpData = { ...contraparte, ...(contraparte.datos_extraidos || {}), razon_social: contraparte.razon_social || contraparte.datos_extraidos?.razon_social || '', nit_cc: contraparte.nit_cc || contraparte.datos_extraidos?.nit_cc || contraparte.datos_extraidos?.nit || '', representante_legal: contraparte.representante_legal || contraparte.datos_extraidos?.representante_legal || '', ciudad: contraparte.ciudad || contraparte.datos_extraidos?.ciudad || '', direccion: contraparte.datos_extraidos?.direccion || '' };
-      const resp = await fetch('/api/generar-listas-restrictivas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, CONTRAPARTE: cpData }) });
+      const screenResp = await fetch('/api/consultar-listas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: cpData.razon_social, identificacion: cpData.nit_cc }) });
+      const screenResult = await screenResp.json();
+      if (screenResult.success) { setScreeningResultados(screenResult); }
+      else { setScreeningResultados({ error: true, message: screenResult.error }); }
+    } catch (err) { setScreeningResultados({ error: true, message: 'Error de conexión' }); }
+    setLoadingScreening(false);
+  };
+
+  const handleDescargarListasDoc = async () => {
+    if (!empresaGuardada || !screeningContraparte) return;
+    try {
+      const resp = await fetch('/api/generar-listas-restrictivas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, CONTRAPARTE: screeningContraparte, SCREENING: screeningResultados }) });
       const result = await resp.json();
-      if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'); await saveDocumento(empresaGuardada.id, 'listas_restrictivas', result.filename, result.base64); if (user) { await logActivity(empresaGuardada.id, user.email, 'generar_listas_restrictivas', `Contraparte: ${cpData.razon_social}`); const regimen = (empresaGuardada.regimen || 'minimas') as Regimen; await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'consultar_listas_contraparte', contraparte.id, cpData.razon_social); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); } }
-      else { setError('Error generando Listas Restrictivas: ' + (result.error || 'intenta de nuevo')); }
-    } catch (err) { console.error('Error generating listas restrictivas:', err); setError('Error de conexión al generar Listas Restrictivas'); }
+      if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'); await saveDocumento(empresaGuardada.id, 'listas_restrictivas', result.filename, result.base64); if (user) { await logActivity(empresaGuardada.id, user.email, 'generar_listas_restrictivas', `Contraparte: ${screeningContraparte.razon_social}`); const regimen = (empresaGuardada.regimen || 'minimas') as Regimen; await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'consultar_listas_contraparte', screeningContraparte.id, screeningContraparte.razon_social); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); } }
+      else { setError('Error generando documento: ' + (result.error || 'intenta de nuevo')); }
+    } catch (err) { setError('Error de conexión al generar documento'); }
   };
 
   const handleOpenFer = (opts?: { trabajador?: any; contraparte?: any }) => {
@@ -1917,15 +1935,10 @@ export default function DashboardPage() {
                                   <button onClick={() => setShowListasForm(false)} className="px-3 py-2 rounded-lg text-[12px] font-medium" style={btnSecondary}>Cancelar</button>
                                   <button disabled={!listasForm.nombre || loadingListas} onClick={async () => {
                                     setLoadingListas(true); setError('');
-                                    try {
-                                      const resp = await fetch('/api/generar-listas-restrictivas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, CONTRAPARTE: { razon_social: listasForm.nombre, nit_cc: listasForm.nit, tipo_persona: listasForm.tipo_persona, tipo_relacion: listasForm.tipo_relacion } }) });
-                                      const result = await resp.json();
-                                      if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'); await saveDocumento(empresaGuardada.id, 'listas_restrictivas', result.filename, result.base64); if (user) await logActivity(empresaGuardada.id, user.email, 'generar_listas_restrictivas', `Consulta: ${listasForm.nombre}`); setShowListasForm(false); setListasForm({ nombre: '', nit: '', tipo_persona: 'juridica', tipo_relacion: 'cliente' }); }
-                                      else { setError('Error: ' + (result.error || 'intenta de nuevo')); }
-                                    } catch (err) { setError('Error de conexión'); }
-                                    finally { setLoadingListas(false); }
+                                    handleGenerarListasRestrictivas({ razon_social: listasForm.nombre, nit_cc: listasForm.nit, tipo_persona: listasForm.tipo_persona, tipo_relacion: listasForm.tipo_relacion });
+                                    setLoadingListas(false); setShowListasForm(false); setListasForm({ nombre: '', nit: '', tipo_persona: 'juridica', tipo_relacion: 'cliente' });
                                   }} className="flex-1 py-2 rounded-lg text-[12px] font-semibold text-white disabled:opacity-50" style={{ background: '#2563EB' }}>
-                                    {loadingListas ? 'Generando...' : 'Generar'}
+                                    {loadingListas ? 'Consultando...' : 'Consultar'}
                                   </button>
                                 </div>
                               </div>
@@ -2355,6 +2368,108 @@ export default function DashboardPage() {
                         {loadingFer ? 'Generando FER...' : 'Generar Evaluación de Riesgos'}
                       </button>
                     </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Screening Modal */}
+        {(loadingScreening || screeningResultados) && screeningContraparte && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto mx-4">
+              <div className="p-6 border-b" style={{ borderColor: '#E0E0E0' }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-[16px] font-bold" style={{ color: '#111' }}>Consulta de Listas Restrictivas</h2>
+                    <p className="text-[12px] mt-0.5" style={{ color: '#888' }}>{screeningContraparte.razon_social} — {screeningContraparte.nit_cc || 'Sin ID'}</p>
+                  </div>
+                  <button onClick={() => { setScreeningResultados(null); setScreeningContraparte(null); }} className="p-1 rounded-lg hover:bg-gray-100">
+                    <svg className="w-5 h-5" fill="none" stroke="#888" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6">
+                {loadingScreening && (
+                  <div className="text-center py-12">
+                    <div className="inline-block w-10 h-10 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+                    <h3 className="text-[14px] font-semibold mb-1" style={{ color: '#111' }}>Consultando listas restrictivas...</h3>
+                    <p className="text-[12px]" style={{ color: '#888' }}>OFAC, OpenSanctions, PEPs, Procuraduría, Contraloría</p>
+                  </div>
+                )}
+
+                {screeningResultados && !screeningResultados.error && (
+                  <div className="space-y-4">
+                    {/* Conclusion */}
+                    <div className="p-4 rounded-xl" style={{
+                      background: screeningResultados.conclusion === 'coincidencia_positiva' ? '#FEF2F2'
+                        : screeningResultados.conclusion === 'coincidencia_parcial' ? '#FFFBEB' : '#ECFDF5',
+                      border: `1px solid ${screeningResultados.conclusion === 'coincidencia_positiva' ? '#FECACA'
+                        : screeningResultados.conclusion === 'coincidencia_parcial' ? '#FDE68A' : '#BBF7D0'}`
+                    }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xl">{screeningResultados.conclusion === 'coincidencia_positiva' ? '🚨' : screeningResultados.conclusion === 'coincidencia_parcial' ? '⚠️' : '✅'}</span>
+                        <span className="text-[14px] font-bold" style={{
+                          color: screeningResultados.conclusion === 'coincidencia_positiva' ? '#991B1B'
+                            : screeningResultados.conclusion === 'coincidencia_parcial' ? '#92400E' : '#065F46'
+                        }}>
+                          {screeningResultados.conclusion === 'coincidencia_positiva' ? 'COINCIDENCIA POSITIVA'
+                            : screeningResultados.conclusion === 'coincidencia_parcial' ? 'COINCIDENCIA PARCIAL (posible homonimia)' : 'SIN COINCIDENCIAS'}
+                        </span>
+                      </div>
+                      <p className="text-[12px]" style={{ color: '#555' }}>{screeningResultados.recomendacion}</p>
+                    </div>
+
+                    {/* Results per list */}
+                    <div className="space-y-2">
+                      {(screeningResultados.resultados || []).map((r: any, i: number) => (
+                        <div key={i} className="p-3 rounded-lg" style={{ border: '1px solid #E5E7EB', background: r.resultado !== 'sin_coincidencia' ? (r.resultado === 'coincidencia_positiva' ? '#FEF2F2' : '#FFFBEB') : '#FAFAFA' }}>
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{
+                                background: r.tipo === 'internacional' ? '#EFF6FF' : '#F0FDF4',
+                                color: r.tipo === 'internacional' ? '#1D4ED8' : '#15803D'
+                              }}>{r.tipo === 'internacional' ? 'INT' : 'NAC'}</span>
+                              <span className="text-[13px] font-semibold" style={{ color: '#111' }}>{r.lista}</span>
+                            </div>
+                            <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{
+                              background: r.resultado === 'coincidencia_positiva' ? '#FEE2E2' : r.resultado === 'coincidencia_parcial' ? '#FEF3C7' : '#D1FAE5',
+                              color: r.resultado === 'coincidencia_positiva' ? '#991B1B' : r.resultado === 'coincidencia_parcial' ? '#92400E' : '#065F46'
+                            }}>
+                              {r.resultado === 'coincidencia_positiva' ? 'Coincidencia' : r.resultado === 'coincidencia_parcial' ? 'Parcial' : 'Limpio'}
+                            </span>
+                          </div>
+                          <p className="text-[10px]" style={{ color: '#888' }}>{r.fuente}</p>
+                          {r.coincidencias.length > 0 && (
+                            <div className="mt-2 space-y-1">
+                              {r.coincidencias.map((c: string, j: number) => (
+                                <div key={j} className="text-[11px] p-2 rounded" style={{ background: '#fff', border: '1px solid #E5E7EB', color: '#333' }}>{c}</div>
+                              ))}
+                            </div>
+                          )}
+                          {r.detalles && <p className="text-[10px] mt-1" style={{ color: '#999', fontStyle: 'italic' }}>{r.detalles}</p>}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-3 pt-3 border-t" style={{ borderColor: '#E0E0E0' }}>
+                      <button onClick={() => { setScreeningResultados(null); setScreeningContraparte(null); }}
+                        className="px-4 py-2.5 rounded-lg text-[13px] font-medium" style={{ border: '1px solid #E0E0E0', color: '#555' }}>Cerrar</button>
+                      <button onClick={handleDescargarListasDoc}
+                        className="flex-1 py-2.5 rounded-lg text-[13px] font-semibold text-white" style={{ background: '#2563EB' }}>
+                        Descargar Documento con Resultados
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {screeningResultados?.error && (
+                  <div className="text-center py-8">
+                    <p className="text-[13px] mb-3" style={{ color: '#DC2626' }}>Error: {screeningResultados.message}</p>
+                    <button onClick={() => { setScreeningResultados(null); setScreeningContraparte(null); }}
+                      className="px-4 py-2 rounded-lg text-[12px] font-medium" style={{ border: '1px solid #E0E0E0', color: '#555' }}>Cerrar</button>
                   </div>
                 )}
               </div>
