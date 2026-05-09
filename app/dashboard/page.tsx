@@ -1133,7 +1133,7 @@ export default function DashboardPage() {
 
           {/* ======== DOCUMENTOS ======== */}
           {activeView === 'documentos' && (
-            <div className="max-w-2xl mx-auto">
+            <div className="max-w-3xl mx-auto">
               <div className="flex items-center justify-center mb-8 gap-2">
                 {[{ n: 1, l: 'Subir' }, { n: 2, l: 'Información' }, { n: 3, l: 'Descargar' }].map((s, i) => (
                   <div key={s.n} className="flex items-center gap-2">
@@ -1148,107 +1148,134 @@ export default function DashboardPage() {
               </div>
 
               {step === 1 && (
-                <div className="rounded-xl p-7" style={cardStyle}>
+                <div>
                   {empresaGuardada ? (
                     <div>
-                      <div className="flex items-center gap-3 mb-4 p-4 rounded-lg" style={{ background: '#ECFDF5', border: '1px solid #BBF7D0' }}>
-                        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="#059669" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                        <div>
-                          <div className="font-semibold text-[13px]" style={{ color: '#059669' }}>{empresaGuardada.razon_social}</div>
-                          <div className="text-[11px]" style={{ color: '#059669' }}>NIT: {empresaGuardada.nit} — Datos guardados</div>
+                      {/* Company banner */}
+                      <div className="rounded-xl p-5 mb-6 flex items-center justify-between" style={cardStyle}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-[13px]" style={{ background: '#111' }}>
+                            {empresaGuardada.razon_social?.[0] || 'E'}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-[14px]" style={{ color: '#111' }}>{empresaGuardada.razon_social}</div>
+                            <div className="text-[11px]" style={{ color: '#999' }}>NIT: {empresaGuardada.nit} &middot; Datos guardados</div>
+                          </div>
                         </div>
+                        <button onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 rounded-lg text-[11px] font-medium" style={btnSecondary}>Actualizar certificado</button>
+                        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".pdf" className="hidden" />
                       </div>
-                      {/* What will be generated */}
-                      <div className="mb-5">
-                        <p className="text-[13px] font-medium mb-3" style={{ color: '#555' }}>Se generarán los siguientes documentos regulatorios:</p>
-                        <div className="space-y-2">
+
+                      {/* SECTION 1: Main regulatory documents */}
+                      <div className="rounded-xl p-6 mb-6" style={cardStyle}>
+                        <div className="flex items-center justify-between mb-5">
+                          <div>
+                            <h3 className="text-[14px] font-semibold" style={{ color: '#111' }}>Documentos regulatorios</h3>
+                            <p className="text-[11px] mt-0.5" style={{ color: '#999' }}>Generados con IA para tu sector APNFD — Resolución 100-006322 de 2023</p>
+                          </div>
+                        </div>
+
+                        <div className="grid md:grid-cols-3 gap-4 mb-6">
                           {[
-                            { name: 'Manual de Medidas Mínimas', desc: 'Documento obligatorio que describe tu sistema de prevención LA/FT/FPADM', ext: 'DOCX', color: '#2563EB' },
-                            { name: 'Matriz de Riesgo', desc: 'Evaluación de riesgos con señales de alerta y controles por sector', ext: 'XLSX', color: '#059669' },
-                            { name: 'Formulario FCC', desc: 'Formato de Conocimiento del Cliente para debida diligencia', ext: 'XLSX', color: '#7C3AED' },
+                            { name: 'Manual de Medidas Mínimas', desc: 'Sistema de prevención LA/FT/FPADM obligatorio', svg: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253', color: '#2563EB' },
+                            { name: 'Matriz de Riesgo', desc: 'Señales de alerta y controles por sector', svg: 'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7', color: '#059669' },
+                            { name: 'Formulario FCC', desc: 'Conocimiento del Cliente para debida diligencia', svg: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4', color: '#7C3AED' },
                           ].map((doc, i) => (
-                            <div key={i} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: '#FAFAFA' }}>
-                              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0" style={{ background: doc.color }}>{doc.ext[0]}</div>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-[12px] font-medium" style={{ color: '#333' }}>{doc.name}</div>
-                                <div className="text-[11px]" style={{ color: '#999' }}>{doc.desc}</div>
+                            <div key={i} className="p-4 rounded-xl" style={{ background: '#FAFAFA', border: '1px solid #F0F0F0' }}>
+                              <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-3" style={{ background: doc.color + '15' }}>
+                                <svg className="w-5 h-5" fill="none" stroke={doc.color} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={doc.svg} /></svg>
                               </div>
+                              <div className="text-[13px] font-semibold mb-1" style={{ color: '#111' }}>{doc.name}</div>
+                              <div className="text-[11px]" style={{ color: '#999' }}>{doc.desc}</div>
                             </div>
                           ))}
                         </div>
-                        <p className="text-[11px] mt-3" style={{ color: '#BBB' }}>Personalizados con IA para tu sector APNFD según la Resolución 100-006322 de 2023.</p>
-                      </div>
 
-                      {/* Listas Restrictivas - standalone */}
-                      <div className="mb-5 p-4 rounded-xl" style={{ background: '#F0F4FF', border: '1px solid #DBEAFE' }}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[9px] font-bold" style={{ background: '#1E40AF' }}>D</div>
-                          <div>
-                            <div className="text-[12px] font-semibold" style={{ color: '#1E40AF' }}>Listas Restrictivas</div>
-                            <div className="text-[10px]" style={{ color: '#6B7FAA' }}>Formato de consulta por contraparte — OFAC, ONU, Procuraduría y más</div>
-                          </div>
-                        </div>
-                        {!showListasForm ? (
-                          <button onClick={() => setShowListasForm(true)} className="w-full mt-1 py-2 rounded-lg text-[12px] font-medium" style={{ background: '#1E40AF', color: '#fff' }}>
-                            Generar formato de consulta
-                          </button>
-                        ) : (
-                          <div className="mt-2 space-y-2">
-                            <div className="grid grid-cols-2 gap-2">
-                              <input placeholder="Nombre o Razón Social" value={listasForm.nombre} onChange={e => setListasForm(p => ({ ...p, nombre: e.target.value }))}
-                                className="px-3 py-2 rounded-lg text-[12px] outline-none" style={{ background: '#fff', border: '1px solid #DBEAFE' }} />
-                              <input placeholder="NIT o Cédula" value={listasForm.nit} onChange={e => setListasForm(p => ({ ...p, nit: e.target.value }))}
-                                className="px-3 py-2 rounded-lg text-[12px] outline-none" style={{ background: '#fff', border: '1px solid #DBEAFE' }} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              <select value={listasForm.tipo_persona} onChange={e => setListasForm(p => ({ ...p, tipo_persona: e.target.value }))}
-                                className="px-3 py-2 rounded-lg text-[12px] outline-none" style={{ background: '#fff', border: '1px solid #DBEAFE' }}>
-                                <option value="juridica">Persona Jurídica</option>
-                                <option value="natural">Persona Natural</option>
-                              </select>
-                              <select value={listasForm.tipo_relacion} onChange={e => setListasForm(p => ({ ...p, tipo_relacion: e.target.value }))}
-                                className="px-3 py-2 rounded-lg text-[12px] outline-none" style={{ background: '#fff', border: '1px solid #DBEAFE' }}>
-                                <option value="cliente">Cliente</option>
-                                <option value="proveedor">Proveedor</option>
-                                <option value="aliado">Aliado</option>
-                              </select>
-                            </div>
-                            <div className="flex gap-2">
-                              <button onClick={() => setShowListasForm(false)} className="px-3 py-2 rounded-lg text-[12px] font-medium" style={btnSecondary}>Cancelar</button>
-                              <button disabled={!listasForm.nombre || loadingListas} onClick={async () => {
-                                setLoadingListas(true); setError('');
-                                try {
-                                  const resp = await fetch('/api/generar-listas-restrictivas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, CONTRAPARTE: { razon_social: listasForm.nombre, nit_cc: listasForm.nit, tipo_persona: listasForm.tipo_persona, tipo_relacion: listasForm.tipo_relacion } }) });
-                                  const result = await resp.json();
-                                  if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'); await saveDocumento(empresaGuardada.id, 'listas_restrictivas', result.filename, result.base64); if (user) await logActivity(empresaGuardada.id, user.email, 'generar_listas_restrictivas', `Consulta: ${listasForm.nombre}`); setShowListasForm(false); setListasForm({ nombre: '', nit: '', tipo_persona: 'juridica', tipo_relacion: 'cliente' }); }
-                                  else { setError('Error: ' + (result.error || 'intenta de nuevo')); }
-                                } catch (err) { setError('Error de conexión'); }
-                                finally { setLoadingListas(false); }
-                              }} className="flex-1 py-2 rounded-lg text-[12px] font-semibold text-white disabled:opacity-50" style={{ background: '#1E40AF' }}>
-                                {loadingListas ? 'Generando...' : 'Generar Listas Restrictivas'}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* FER - standalone */}
-                      <div className="mb-5 p-4 rounded-xl" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[9px] font-bold" style={{ background: '#D97706' }}>F</div>
-                          <div>
-                            <div className="text-[12px] font-semibold" style={{ color: '#92400E' }}>Evaluación de Riesgos (FER)</div>
-                            <div className="text-[10px]" style={{ color: '#B45309' }}>Evaluación guiada con cálculo automático de riesgo y mitigaciones por sector</div>
-                          </div>
-                        </div>
-                        <button onClick={() => handleOpenFer()} className="w-full mt-1 py-2 rounded-lg text-[12px] font-medium" style={{ background: '#D97706', color: '#fff' }}>
-                          Iniciar evaluación de riesgos
+                        <button onClick={() => setStep(2)} className="w-full py-3 rounded-lg text-white font-semibold text-[13px]" style={btnPrimary}>
+                          Continuar con la generación
+                          <svg className="w-4 h-4 inline-block ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
                         </button>
                       </div>
 
-                      <div className="flex gap-3">
-                        <button onClick={() => setStep(2)} className="flex-1 py-2.5 rounded-lg text-white font-semibold text-[13px]" style={btnPrimary}>Continuar con la generación</button>
-                        <button onClick={() => fileInputRef.current?.click()} className="px-4 py-2.5 rounded-lg text-[13px] font-medium" style={btnSecondary}>Actualizar certificado</button>
+                      {/* SECTION 2: Additional documents */}
+                      <div className="mb-1">
+                        <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] mb-3" style={{ color: '#999' }}>Documentos adicionales</h3>
+                      </div>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        {/* Listas Restrictivas */}
+                        <div className="rounded-xl overflow-hidden" style={cardStyle}>
+                          <div className="p-5">
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: '#EFF6FF' }}>
+                                <svg className="w-5 h-5" fill="none" stroke="#2563EB" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                              </div>
+                              <div>
+                                <div className="text-[13px] font-semibold" style={{ color: '#111' }}>Listas Restrictivas</div>
+                                <div className="text-[10px]" style={{ color: '#999' }}>OFAC, ONU, Procuraduría y más</div>
+                              </div>
+                            </div>
+                            {!showListasForm ? (
+                              <button onClick={() => setShowListasForm(true)} className="w-full py-2 rounded-lg text-[12px] font-medium text-white" style={{ background: '#2563EB' }}>
+                                Generar consulta
+                              </button>
+                            ) : (
+                              <div className="space-y-2">
+                                <div className="grid grid-cols-2 gap-2">
+                                  <input placeholder="Nombre o Razón Social" value={listasForm.nombre} onChange={e => setListasForm(p => ({ ...p, nombre: e.target.value }))}
+                                    className="px-3 py-2 rounded-lg text-[12px] outline-none" style={{ border: '1px solid #E0E0E0' }} />
+                                  <input placeholder="NIT o Cédula" value={listasForm.nit} onChange={e => setListasForm(p => ({ ...p, nit: e.target.value }))}
+                                    className="px-3 py-2 rounded-lg text-[12px] outline-none" style={{ border: '1px solid #E0E0E0' }} />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <select value={listasForm.tipo_persona} onChange={e => setListasForm(p => ({ ...p, tipo_persona: e.target.value }))}
+                                    className="px-3 py-2 rounded-lg text-[12px] outline-none" style={{ border: '1px solid #E0E0E0', background: '#fff' }}>
+                                    <option value="juridica">Jurídica</option>
+                                    <option value="natural">Natural</option>
+                                  </select>
+                                  <select value={listasForm.tipo_relacion} onChange={e => setListasForm(p => ({ ...p, tipo_relacion: e.target.value }))}
+                                    className="px-3 py-2 rounded-lg text-[12px] outline-none" style={{ border: '1px solid #E0E0E0', background: '#fff' }}>
+                                    <option value="cliente">Cliente</option>
+                                    <option value="proveedor">Proveedor</option>
+                                    <option value="aliado">Aliado</option>
+                                  </select>
+                                </div>
+                                <div className="flex gap-2">
+                                  <button onClick={() => setShowListasForm(false)} className="px-3 py-2 rounded-lg text-[12px] font-medium" style={btnSecondary}>Cancelar</button>
+                                  <button disabled={!listasForm.nombre || loadingListas} onClick={async () => {
+                                    setLoadingListas(true); setError('');
+                                    try {
+                                      const resp = await fetch('/api/generar-listas-restrictivas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, CONTRAPARTE: { razon_social: listasForm.nombre, nit_cc: listasForm.nit, tipo_persona: listasForm.tipo_persona, tipo_relacion: listasForm.tipo_relacion } }) });
+                                      const result = await resp.json();
+                                      if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'); await saveDocumento(empresaGuardada.id, 'listas_restrictivas', result.filename, result.base64); if (user) await logActivity(empresaGuardada.id, user.email, 'generar_listas_restrictivas', `Consulta: ${listasForm.nombre}`); setShowListasForm(false); setListasForm({ nombre: '', nit: '', tipo_persona: 'juridica', tipo_relacion: 'cliente' }); }
+                                      else { setError('Error: ' + (result.error || 'intenta de nuevo')); }
+                                    } catch (err) { setError('Error de conexión'); }
+                                    finally { setLoadingListas(false); }
+                                  }} className="flex-1 py-2 rounded-lg text-[12px] font-semibold text-white disabled:opacity-50" style={{ background: '#2563EB' }}>
+                                    {loadingListas ? 'Generando...' : 'Generar'}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* FER */}
+                        <div className="rounded-xl overflow-hidden" style={cardStyle}>
+                          <div className="p-5">
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: '#FFFBEB' }}>
+                                <svg className="w-5 h-5" fill="none" stroke="#D97706" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                              </div>
+                              <div>
+                                <div className="text-[13px] font-semibold" style={{ color: '#111' }}>Evaluación de Riesgos (FER)</div>
+                                <div className="text-[10px]" style={{ color: '#999' }}>Evaluación guiada con IA</div>
+                              </div>
+                            </div>
+                            <button onClick={() => handleOpenFer()} className="w-full py-2 rounded-lg text-[12px] font-medium text-white" style={{ background: '#D97706' }}>
+                              Iniciar evaluación
+                            </button>
+                          </div>
+                        </div>
                       </div>
                       <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".pdf" className="hidden" />
                     </div>
