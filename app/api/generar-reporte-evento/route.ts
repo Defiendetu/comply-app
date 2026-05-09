@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     const clasificacionLabel = CLASIFICACION_LABELS[EVENTO.clasificacion] || 'Operación Inusual';
     const tipoRiesgoLabel = TIPO_RIESGO_LABELS[EVENTO.tipo_riesgo] || 'Lavado de Activos';
 
-    const sections: Paragraph[] = [];
+    const sections: (Paragraph | Table)[] = [];
 
     // Title
     sections.push(
