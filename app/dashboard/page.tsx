@@ -75,12 +75,12 @@ export default function DashboardPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadingMessages = [
-    { icon: '📄', text: 'Recibimos tu certificado...', sub: 'Preparando el analisis' },
-    { icon: '🔍', text: 'Extrayendo datos de tu empresa...', sub: 'Razon social, NIT, objeto social' },
+    { icon: '📄', text: 'Recibimos tu certificado...', sub: 'Preparando el análisis' },
+    { icon: '🔍', text: 'Extrayendo datos de tu empresa...', sub: 'Razón social, NIT, objeto social' },
     { icon: '🧠', text: 'Analizando riesgos de tu sector...', sub: 'Evaluando factores LA/FT/FPADM' },
     { icon: '📊', text: 'Construyendo la matriz de riesgo...', sub: 'Probabilidades e impactos' },
     { icon: '⚖️', text: 'Generando senales de alerta...', sub: 'Controles especificos' },
-    { icon: '📋', text: 'Redactando tu Manual...', sub: 'Personalizando cada seccion' },
+    { icon: '📋', text: 'Redactando tu Manual...', sub: 'Personalizando cada sección' },
     { icon: '✨', text: 'Formato profesional...', sub: 'Ya casi terminamos' },
     { icon: '🔒', text: 'Finalizando...', sub: 'Empaquetando todo para ti' },
   ];
@@ -164,7 +164,7 @@ export default function DashboardPage() {
           const result = await resp.json();
           if (result.success && result.datosExtraidos && result.contraparte) { finalData = { ...finalData, ...result.contraparte, datos_extraidos: true }; }
           else { setError('La IA no pudo extraer los datos. ' + (result.error || 'Registra manualmente.')); setContraparteForm(p => ({ ...p, certificadoBase64: '', certificadoNombre: '' })); setLoadingContraparte(false); return; }
-        } catch (fetchErr) { setError('Error de conexion con n8n. Intenta de nuevo.'); setLoadingContraparte(false); return; }
+        } catch (fetchErr) { setError('Error de conexión con n8n. Intenta de nuevo.'); setLoadingContraparte(false); return; }
       }
       const { data: saved, error: dbError } = await supabase.from('contrapartes').insert({ empresa_id: empresaGuardada.id, tipo_persona: finalData.tipo_persona || 'juridica', tipo_relacion: finalData.tipo_relacion || 'cliente', razon_social: finalData.razon_social || '', nit_cc: finalData.nit_cc || finalData.nit || '', representante_legal: finalData.representante_legal || '', ciudad: finalData.ciudad || '', estado: 'activo', datos_extraidos: finalData.datos_extraidos ? finalData : null }).select().single();
       if (dbError) { setError('Error guardando: ' + dbError.message); setLoadingContraparte(false); return; }
@@ -181,7 +181,7 @@ export default function DashboardPage() {
       const result = await resp.json();
       if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); await saveDocumento(empresaGuardada.id, 'fcc', result.filename, result.base64); }
       else { setError('Error generando FCC: ' + (result.error || 'intenta de nuevo')); }
-    } catch (err) { console.error('Error generating FCC:', err); setError('Error de conexion al generar FCC'); }
+    } catch (err) { console.error('Error generating FCC:', err); setError('Error de conexión al generar FCC'); }
   };
 
   const handleContratoTrabajador = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -197,7 +197,7 @@ export default function DashboardPage() {
         const result = await resp.json();
         if (result.success && result.trabajador) { const t = result.trabajador; setTrabajadorForm(p => ({ ...p, nombre: t.nombre || p.nombre, cedula: t.cedula || p.cedula, cargo: t.cargo || p.cargo, area: t.area || p.area, fecha_ingreso: t.fecha_ingreso || p.fecha_ingreso })); }
         else { setError('No se pudieron extraer datos. Completa manualmente.'); }
-      } catch { setError('Error de conexion. Completa manualmente.'); }
+      } catch { setError('Error de conexión. Completa manualmente.'); }
       finally { setLoadingExtraccion(false); }
     };
     reader.readAsDataURL(file);
@@ -219,7 +219,7 @@ export default function DashboardPage() {
     if (!empresaGuardada) return;
     setLoadingDeclaracion(trabajador.id);
     try {
-      const resp = await fetch('/api/generar-declaracion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, SIGLAS: empresaGuardada.razon_social?.split(' ').filter((p: string) => p.length > 1).map((p: string) => p[0]).join('').substring(0, 4).toUpperCase(), TRABAJADOR: { nombre: trabajador.razon_social, cedula: trabajador.nit_cc, cargo: trabajador.datos_extraidos?.cargo || '', area: trabajador.datos_extraidos?.area || '' } }) });
+      const resp = await fetch('/api/generar-declaración', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, SIGLAS: empresaGuardada.razon_social?.split(' ').filter((p: string) => p.length > 1).map((p: string) => p[0]).join('').substring(0, 4).toUpperCase(), TRABAJADOR: { nombre: trabajador.razon_social, cedula: trabajador.nit_cc, cargo: trabajador.datos_extraidos?.cargo || '', area: trabajador.datos_extraidos?.area || '' } }) });
       const result = await resp.json();
       if (result.success && result.base64) {
         dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -228,8 +228,8 @@ export default function DashboardPage() {
         const updatedDatos = { ...(trabajador.datos_extraidos || {}), fecha_ultima_declaracion: now };
         await supabase.from('contrapartes').update({ datos_extraidos: updatedDatos }).eq('id', trabajador.id);
         setTrabajadores(prev => prev.map(t => t.id === trabajador.id ? { ...t, datos_extraidos: updatedDatos } : t));
-      } else { setError('Error generando declaracion: ' + (result.error || 'intenta de nuevo')); }
-    } catch (err) { setError('Error de conexion al generar declaracion'); }
+      } else { setError('Error generando declaración: ' + (result.error || 'intenta de nuevo')); }
+    } catch (err) { setError('Error de conexión al generar declaración'); }
     finally { setLoadingDeclaracion(null); }
   };
 
@@ -242,7 +242,7 @@ export default function DashboardPage() {
 
   const getDeclaracionStatus = (trabajador: any) => {
     const fechaDecl = trabajador.datos_extraidos?.fecha_ultima_declaracion;
-    if (!fechaDecl) return { status: 'pendiente', color: '#DC2626', bg: '#FEF2F2', label: 'Sin declaracion' };
+    if (!fechaDecl) return { status: 'pendiente', color: '#DC2626', bg: '#FEF2F2', label: 'Sin declaración' };
     const fecha = new Date(fechaDecl);
     const now = new Date();
     const diffDays = Math.floor((now.getTime() - fecha.getTime()) / (1000 * 60 * 60 * 24));
@@ -255,7 +255,7 @@ export default function DashboardPage() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     if (file.type !== 'application/pdf') { setError('Solo archivos PDF'); return; }
-    if (file.size > 10 * 1024 * 1024) { setError('Maximo 10MB'); return; }
+    if (file.size > 10 * 1024 * 1024) { setError('Máximo 10MB'); return; }
     setError('');
     const reader = new FileReader();
     reader.onload = () => { const b = (reader.result as string).split(',')[1]; setFormData(p => ({ ...p, certificadoBase64: b, certificadoNombre: file.name })); };
@@ -264,7 +264,7 @@ export default function DashboardPage() {
   const handleCanalesChange = (c: string) => { setFormData(p => ({ ...p, canales: p.canales.includes(c) ? p.canales.filter(x => x !== c) : [...p.canales, c] })); };
 
   const handleSubmit = async () => {
-    if (!formData.certificadoBase64) { setError('Sube el Certificado de Camara de Comercio'); return; }
+    if (!formData.certificadoBase64) { setError('Sube el Certificado de Cámara de Comercio'); return; }
     if (!formData.manejaEfectivo) { setError('Indica si manejas efectivo'); return; }
     if (!formData.operaExtranjeros) { setError('Indica si operas con extranjeros'); return; }
     if (formData.canales.length === 0) { setError('Selecciona al menos un canal'); return; }
@@ -285,12 +285,12 @@ export default function DashboardPage() {
         }
         setStep(3);
       } else { setError(d.error || 'Error al generar documentos'); }
-    } catch (err) { setError(err instanceof Error ? err.message : 'Error de conexion'); } finally { setLoading(false); }
+    } catch (err) { setError(err instanceof Error ? err.message : 'Error de conexión'); } finally { setLoading(false); }
   };
 
   const dl = (b64: string, fn: string, mime: string) => { const bc = atob(b64); const bn = new Array(bc.length); for (let i=0;i<bc.length;i++) bn[i]=bc.charCodeAt(i); const blob = new Blob([new Uint8Array(bn)],{type:mime}); const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=fn; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); };
   const getMimeForType = (tipo: string) => tipo === 'manual' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  const getDocLabel = (tipo: string) => ({ manual: 'Manual de Medidas Minimas', matriz: 'Matriz de Riesgo', fcc: 'Formulario FCC', fer: 'Evaluacion de Riesgos', reporte_eventos: 'Reporte de Eventos', declaracion_trabajadores: 'Declaracion Trabajadores', listas_restrictivas: 'Listas Restrictivas' }[tipo] || tipo);
+  const getDocLabel = (tipo: string) => ({ manual: 'Manual de Medidas Mínimas', matriz: 'Matriz de Riesgo', fcc: 'Formulario FCC', fer: 'Evaluación de Riesgos', reporte_eventos: 'Reporte de Eventos', declaracion_trabajadores: 'Declaración de Trabajadores', listas_restrictivas: 'Listas Restrictivas' }[tipo] || tipo);
   const getDocColor = (tipo: string) => ({ manual: '#2563EB', matriz: '#059669', fcc: '#7C3AED', fer: '#D97706', reporte_eventos: '#DC2626' }[tipo] || '#2563EB');
   const getDocExt = (tipo: string) => tipo === 'manual' ? 'DOCX' : 'XLSX';
 
@@ -302,8 +302,8 @@ export default function DashboardPage() {
     { id: 'contrapartes' as ActiveView, label: 'Contrapartes', svg: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
     { id: 'trabajadores' as ActiveView, label: 'Trabajadores', svg: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
     { id: 'agentes' as ActiveView, label: 'AI Agents', svg: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z', badge: 'Nuevo' },
-    { id: 'matriz' as ActiveView, label: 'Matriz', svg: 'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7', badge: 'Proximo', disabled: true },
-    { id: 'reportes' as ActiveView, label: 'Reportes', svg: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', badge: 'Proximo', disabled: true },
+    { id: 'matriz' as ActiveView, label: 'Matriz', svg: 'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7', badge: 'Próximo', disabled: true },
+    { id: 'reportes' as ActiveView, label: 'Reportes', svg: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', badge: 'Próximo', disabled: true },
   ];
 
   // Shared component styles
@@ -382,7 +382,7 @@ export default function DashboardPage() {
           </h1>
           <button onClick={() => { setActiveView('documentos'); setStep(empresaGuardada ? 2 : 1); }}
             className="px-4 py-1.5 rounded-lg text-[12px] font-semibold text-white" style={{ background: '#111' }}>
-            + Nuevo Analisis
+            + Nuevo Análisis
           </button>
         </header>
 
@@ -416,7 +416,7 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <h2 className="text-[16px] font-semibold" style={{ color: '#111' }}>Bienvenido a Comply</h2>
-                      <p className="text-[13px]" style={{ color: '#999' }}>Sube tu Certificado de Camara de Comercio para comenzar.</p>
+                      <p className="text-[13px]" style={{ color: '#999' }}>Sube tu Certificado de Cámara de Comercio para comenzar.</p>
                     </div>
                   </div>
                 )}
@@ -425,7 +425,7 @@ export default function DashboardPage() {
               {/* Quick actions */}
               <div className="grid md:grid-cols-3 gap-4 mb-6">
                 {[
-                  { title: 'Generar Documentos', desc: empresaGuardada ? 'Nuevos documentos con datos guardados' : 'Sube tu Camara de Comercio', view: 'documentos' as ActiveView, icon: (
+                  { title: 'Generar Documentos', desc: empresaGuardada ? 'Nuevos documentos con datos guardados' : 'Sube tu Cámara de Comercio', view: 'documentos' as ActiveView, icon: (
                     <svg className="w-5 h-5" fill="none" stroke="#2563EB" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                   ), iconBg: '#DBEAFE' },
                   { title: 'Contrapartes', desc: 'Registra y genera FCC personalizados', view: 'contrapartes' as ActiveView, icon: (
@@ -478,9 +478,9 @@ export default function DashboardPage() {
               </div>
               <div className="grid md:grid-cols-3 gap-4">
                 {[
-                  { name: 'Vigia', role: 'Screening Agent', desc: 'Cruza contrapartes contra 300+ listas restrictivas. OFAC, ONU, Procuraduria y PEPs.', features: ['Cruce contra 300+ listas', 'Alertas instantaneas', 'Reportes de debida diligencia'], color: '#2563EB' },
-                  { name: 'Centinela', role: 'Monitoring Agent', desc: 'Monitoreo continuo. Detecta operaciones inusuales y evalua riesgos dinamicamente.', features: ['Monitoreo transaccional', 'Deteccion de anomalias', 'Evaluacion dinamica de riesgo'], color: '#D97706' },
-                  { name: 'Cumplidor', role: 'Compliance Agent', desc: 'Genera reportes regulatorios y gestiona el calendario de obligaciones.', features: ['Reportes automaticos', 'Calendario regulatorio', 'Actualizacion periodica KYC'], color: '#059669' },
+                  { name: 'Vigia', role: 'Screening Agent', desc: 'Cruza contrapartes contra 300+ listas restrictivas. OFAC, ONU, Procuraduría y PEPs.', features: ['Cruce contra 300+ listas', 'Alertas instantáneas', 'Reportes de debida diligencia'], color: '#2563EB' },
+                  { name: 'Centinela', role: 'Monitoring Agent', desc: 'Monitoreo continuo. Detecta operaciónes inusuales y evalua riesgos dinámicamente.', features: ['Monitoreo transaccional', 'Detección de anomalías', 'Evaluación dinámica de riesgo'], color: '#D97706' },
+                  { name: 'Cumplidor', role: 'Compliance Agent', desc: 'Genera reportes regulatorios y gestiona el calendario de obligaciones.', features: ['Reportes automáticos', 'Calendario regulatorio', 'Actualización periódica KYC'], color: '#059669' },
                 ].map((agent, i) => (
                   <div key={i} className="rounded-xl overflow-hidden" style={cardStyle}>
                     <div className="h-1" style={{ background: agent.color }}></div>
@@ -501,7 +501,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="px-5 py-3" style={{ borderTop: '1px solid #F5F5F5' }}>
-                      <button className="w-full py-2 rounded-lg text-[12px] font-medium" style={{ background: '#F5F5F5', color: '#999' }}>Proximamente</button>
+                      <button className="w-full py-2 rounded-lg text-[12px] font-medium" style={{ background: '#F5F5F5', color: '#999' }}>Próximamente</button>
                     </div>
                   </div>
                 ))}
@@ -530,13 +530,13 @@ export default function DashboardPage() {
                         {['juridica', 'natural'].map(t => (
                           <button key={t} onClick={() => setContraparteForm(p => ({...p, tipo_persona: t}))} className="flex-1 px-3 py-2 rounded-lg text-[12px] font-medium transition-all"
                             style={contraparteForm.tipo_persona === t ? { background: '#111', color: '#fff' } : { background: '#F5F5F5', color: '#666' }}>
-                            {t === 'juridica' ? 'Juridica' : 'Natural'}
+                            {t === 'juridica' ? 'Jurídica' : 'Natural'}
                           </button>
                         ))}
                       </div>
                     </div>
                     <div>
-                      <label className="text-[12px] font-medium block mb-1.5" style={{ color: '#555' }}>Tipo de relacion</label>
+                      <label className="text-[12px] font-medium block mb-1.5" style={{ color: '#555' }}>Tipo de relación</label>
                       <div className="flex gap-2">
                         {['cliente', 'proveedor', 'empleado'].map(t => (
                           <button key={t} onClick={() => setContraparteForm(p => ({...p, tipo_relacion: t}))} className="flex-1 px-3 py-2 rounded-lg text-[12px] font-medium transition-all"
@@ -550,7 +550,7 @@ export default function DashboardPage() {
                   <div className="mb-4 p-4 rounded-lg" style={{ background: '#FAFAFA', border: '1px dashed #DDD' }}>
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="font-medium text-[13px]" style={{ color: '#333' }}>Certificado de Camara de Comercio <span className="font-normal text-[11px]" style={{ color: '#BBB' }}>(opcional)</span></div>
+                        <div className="font-medium text-[13px]" style={{ color: '#333' }}>Certificado de Cámara de Comercio <span className="font-normal text-[11px]" style={{ color: '#BBB' }}>(opcional)</span></div>
                         <div className="text-[11px] mt-0.5" style={{ color: '#999' }}>Sube el certificado y la IA extraera los datos</div>
                       </div>
                       <button onClick={() => contraparteFileRef.current?.click()} className="px-3 py-1.5 rounded-lg text-[12px] font-medium" style={{ background: '#F0F0F0', color: '#555' }}>
@@ -562,11 +562,11 @@ export default function DashboardPage() {
                   {!contraparteForm.certificadoBase64 && (
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       <div>
-                        <label className="text-[12px] font-medium block mb-1" style={{ color: '#555' }}>{contraparteForm.tipo_persona === 'juridica' ? 'Razon Social' : 'Nombre'}</label>
+                        <label className="text-[12px] font-medium block mb-1" style={{ color: '#555' }}>{contraparteForm.tipo_persona === 'juridica' ? 'Razón Social' : 'Nombre'}</label>
                         <input type="text" value={contraparteForm.razon_social} onChange={e => setContraparteForm(p => ({...p, razon_social: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] outline-none" style={{ border: '1px solid #E0E0E0' }} placeholder={contraparteForm.tipo_persona === 'juridica' ? 'Empresa S.A.S.' : 'Juan Perez'} />
                       </div>
                       <div>
-                        <label className="text-[12px] font-medium block mb-1" style={{ color: '#555' }}>{contraparteForm.tipo_persona === 'juridica' ? 'NIT' : 'Cedula'}</label>
+                        <label className="text-[12px] font-medium block mb-1" style={{ color: '#555' }}>{contraparteForm.tipo_persona === 'juridica' ? 'NIT' : 'Cédula'}</label>
                         <input type="text" value={contraparteForm.nit_cc} onChange={e => setContraparteForm(p => ({...p, nit_cc: e.target.value}))} className="w-full px-3 py-2 rounded-lg text-[13px] outline-none" style={{ border: '1px solid #E0E0E0' }} />
                       </div>
                       {contraparteForm.tipo_persona === 'juridica' && (
@@ -680,7 +680,7 @@ export default function DashboardPage() {
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     {[
                       { key: 'nombre', label: 'Nombre completo *', placeholder: 'Juan Perez Lopez' },
-                      { key: 'cedula', label: 'Cedula *', placeholder: '1023456789' },
+                      { key: 'cedula', label: 'Cédula *', placeholder: '1023456789' },
                       { key: 'cargo', label: 'Cargo', placeholder: 'Asesor Comercial' },
                       { key: 'area', label: 'Area', placeholder: 'Ventas' },
                     ].map(f => (
@@ -754,7 +754,7 @@ export default function DashboardPage() {
           {activeView === 'documentos' && (
             <div className="max-w-2xl mx-auto">
               <div className="flex items-center justify-center mb-8 gap-2">
-                {[{ n: 1, l: 'Subir' }, { n: 2, l: 'Informacion' }, { n: 3, l: 'Descargar' }].map((s, i) => (
+                {[{ n: 1, l: 'Subir' }, { n: 2, l: 'Información' }, { n: 3, l: 'Descargar' }].map((s, i) => (
                   <div key={s.n} className="flex items-center gap-2">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-semibold ${step >= s.n ? 'text-white' : ''}`}
                       style={step >= s.n ? { background: '#111' } : { background: '#F0F0F0', color: '#BBB' }}>
@@ -777,16 +777,35 @@ export default function DashboardPage() {
                           <div className="text-[11px]" style={{ color: '#059669' }}>NIT: {empresaGuardada.nit} — Datos guardados</div>
                         </div>
                       </div>
-                      <p className="text-[13px] mb-4" style={{ color: '#999' }}>Genera nuevos documentos o actualiza tu certificado.</p>
+                      {/* What will be generated */}
+                      <div className="mb-5">
+                        <p className="text-[13px] font-medium mb-3" style={{ color: '#555' }}>Se generarán los siguientes documentos regulatorios:</p>
+                        <div className="space-y-2">
+                          {[
+                            { name: 'Manual de Medidas Mínimas', desc: 'Documento obligatorio que describe tu sistema de prevención LA/FT/FPADM', ext: 'DOCX', color: '#2563EB' },
+                            { name: 'Matriz de Riesgo', desc: 'Evaluación de riesgos con señales de alerta y controles por sector', ext: 'XLSX', color: '#059669' },
+                            { name: 'Formulario FCC', desc: 'Formato de Conocimiento del Cliente para debida diligencia', ext: 'XLSX', color: '#7C3AED' },
+                          ].map((doc, i) => (
+                            <div key={i} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: '#FAFAFA' }}>
+                              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0" style={{ background: doc.color }}>{doc.ext[0]}</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[12px] font-medium" style={{ color: '#333' }}>{doc.name}</div>
+                                <div className="text-[11px]" style={{ color: '#999' }}>{doc.desc}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-[11px] mt-3" style={{ color: '#BBB' }}>Personalizados con IA para tu sector APNFD según la Resolución 100-006322 de 2023.</p>
+                      </div>
                       <div className="flex gap-3">
-                        <button onClick={() => setStep(2)} className="flex-1 py-2.5 rounded-lg text-white font-semibold text-[13px]" style={btnPrimary}>Generar con datos guardados</button>
+                        <button onClick={() => setStep(2)} className="flex-1 py-2.5 rounded-lg text-white font-semibold text-[13px]" style={btnPrimary}>Continuar con la generación</button>
                         <button onClick={() => fileInputRef.current?.click()} className="px-4 py-2.5 rounded-lg text-[13px] font-medium" style={btnSecondary}>Actualizar certificado</button>
                       </div>
                       <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".pdf" className="hidden" />
                     </div>
                   ) : (
                     <div>
-                      <h2 className="text-[17px] font-semibold mb-1" style={{ color: '#111' }}>Sube tu Certificado de Camara de Comercio</h2>
+                      <h2 className="text-[17px] font-semibold mb-1" style={{ color: '#111' }}>Sube tu Certificado de Cámara de Comercio</h2>
                       <p className="text-[13px] mb-5" style={{ color: '#999' }}>La IA generara documentos personalizados para tu empresa.</p>
                       <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all hover:border-gray-400"
                         style={{ borderColor: formData.certificadoBase64 ? '#059669' : '#E0E0E0', background: formData.certificadoBase64 ? '#ECFDF5' : '#FAFAFA' }}>
@@ -794,7 +813,7 @@ export default function DashboardPage() {
                         {formData.certificadoBase64 ? (
                           <><svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="#059669" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg><p className="font-medium text-[13px]" style={{ color: '#059669' }}>{formData.certificadoNombre}</p></>
                         ) : (
-                          <><svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="#CCC" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg><p className="font-medium text-[13px]" style={{ color: '#555' }}>Arrastra o haz clic para subir</p><p className="text-[11px] mt-1" style={{ color: '#BBB' }}>PDF — Maximo 10MB</p></>
+                          <><svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="#CCC" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg><p className="font-medium text-[13px]" style={{ color: '#555' }}>Arrastra o haz clic para subir</p><p className="text-[11px] mt-1" style={{ color: '#BBB' }}>PDF — Máximo 10MB</p></>
                         )}
                       </div>
                       {formData.certificadoBase64 && <button onClick={() => setStep(2)} className="w-full mt-5 py-2.5 rounded-lg text-white font-semibold text-[13px]" style={btnPrimary}>Continuar</button>}
@@ -805,7 +824,7 @@ export default function DashboardPage() {
 
               {step === 2 && (
                 <div className="rounded-xl p-7" style={cardStyle}>
-                  <h2 className="text-[17px] font-semibold mb-5" style={{ color: '#111' }}>Informacion Adicional</h2>
+                  <h2 className="text-[17px] font-semibold mb-5" style={{ color: '#111' }}>Información Adicional</h2>
                   {[{ key: 'manejaEfectivo', q: 'Tu empresa maneja efectivo?' }, { key: 'operaExtranjeros', q: 'Opera con extranjeros?' }].map(q => (
                     <div key={q.key} className="mb-4">
                       <label className="text-[13px] font-medium block mb-2" style={{ color: '#333' }}>{q.q}</label>
@@ -818,9 +837,9 @@ export default function DashboardPage() {
                     </div>
                   ))}
                   <div className="mb-4">
-                    <label className="text-[13px] font-medium block mb-2" style={{ color: '#333' }}>Canales de operacion</label>
+                    <label className="text-[13px] font-medium block mb-2" style={{ color: '#333' }}>Canales de operación</label>
                     <div className="flex flex-wrap gap-2">
-                      {['Presencial', 'Virtual', 'Telefonico', 'Mixto'].map(c => (
+                      {['Presencial', 'Virtual', 'Telefónico', 'Mixto'].map(c => (
                         <button key={c} onClick={() => handleCanalesChange(c.toLowerCase())} className="px-4 py-2 rounded-lg text-[12px] font-medium transition-all"
                           style={formData.canales.includes(c.toLowerCase()) ? { background: '#111', color: '#fff' } : { background: '#F5F5F5', color: '#666' }}>{c}</button>
                       ))}
@@ -881,7 +900,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="grid md:grid-cols-3 gap-4 mb-5">
                     {[
-                      { name: 'Manual de Medidas Minimas', type: 'DOCX', color: '#2563EB', fn: () => dl(documentosGenerados.manualBase64, documentosGenerados.manualNombre, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') },
+                      { name: 'Manual de Medidas Mínimas', type: 'DOCX', color: '#2563EB', fn: () => dl(documentosGenerados.manualBase64, documentosGenerados.manualNombre, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') },
                       { name: 'Matriz de Riesgo', type: 'XLSX', color: '#059669', fn: () => dl(documentosGenerados.matrizBase64, documentosGenerados.matrizNombre, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') },
                       { name: 'Formulario FCC', type: 'XLSX', color: '#7C3AED', fn: () => dl(documentosGenerados.fccBase64, documentosGenerados.fccNombre, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') },
                     ].map((doc, i) => (
