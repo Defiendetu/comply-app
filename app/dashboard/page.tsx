@@ -107,8 +107,14 @@ export default function DashboardPage() {
       const { data: empresas } = await supabase.from('empresas').select('*').eq('user_email', email).order('created_at', { ascending: false }).limit(1);
       if (empresas && empresas.length > 0) {
         setEmpresaGuardada(empresas[0]);
-        const { data: docs } = await supabase.from('documentos').select('*').eq('empresa_id', empresas[0].id).order('created_at', { ascending: false }).limit(20);
-        if (docs) setHistorialDocumentos(docs);
+        const { data: docs } = await supabase.from('documentos').select('*').eq('empresa_id', empresas[0].id).order('created_at', { ascending: false });
+        if (docs) {
+          setHistorialDocumentos(docs.slice(0, 8));
+          if (docs.length > 8) {
+            const idsToDelete = docs.slice(8).map(d => d.id);
+            await supabase.from('documentos').delete().in('id', idsToDelete);
+          }
+        }
         const { data: contras } = await supabase.from('contrapartes').select('*').eq('empresa_id', empresas[0].id).order('created_at', { ascending: false });
         if (contras) { setContrapartes(contras); setTrabajadores(contras.filter((c: any) => c.tipo_relacion === 'empleado')); }
       }
@@ -422,6 +428,135 @@ export default function DashboardPage() {
                 )}
               </div>
 
+              {/* Compliance Charts */}
+              {empresaGuardada && (
+                <div className="grid md:grid-cols-3 gap-4 mb-6">
+                  {/* Chart 1: Declaraciones de trabajadores */}
+                  {(() => {
+                    const vigentes = trabajadores.filter(t => getDeclaracionStatus(t).status === 'vigente').length;
+                    const porVencer = trabajadores.filter(t => getDeclaracionStatus(t).status === 'por_vencer').length;
+                    const pendientes = trabajadores.filter(t => ['pendiente', 'vencida'].includes(getDeclaracionStatus(t).status)).length;
+                    const total = trabajadores.length;
+                    const pct = total > 0 ? Math.round((vigentes / total) * 100) : 0;
+                    const circumference = 2 * Math.PI * 36;
+                    const vigenteDash = total > 0 ? (vigentes / total) * circumference : 0;
+                    const porVencerDash = total > 0 ? (porVencer / total) * circumference : 0;
+                    const pendienteDash = total > 0 ? (pendientes / total) * circumference : circumference;
+                    return (
+                      <div className="rounded-xl p-5" style={cardStyle}>
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.12em] mb-4" style={{ color: '#999' }}>Declaraciones Trabajadores</div>
+                        <div className="flex items-center gap-4">
+                          <div className="relative w-20 h-20 flex-shrink-0">
+                            <svg viewBox="0 0 80 80" className="w-full h-full -rotate-90">
+                              <circle cx="40" cy="40" r="36" fill="none" stroke="#F3F3F3" strokeWidth="6" />
+                              {total > 0 && <>
+                                <circle cx="40" cy="40" r="36" fill="none" stroke="#059669" strokeWidth="6" strokeDasharray={`${vigenteDash} ${circumference}`} strokeDashoffset="0" strokeLinecap="round" />
+                                <circle cx="40" cy="40" r="36" fill="none" stroke="#D97706" strokeWidth="6" strokeDasharray={`${porVencerDash} ${circumference}`} strokeDashoffset={`${-vigenteDash}`} strokeLinecap="round" />
+                                <circle cx="40" cy="40" r="36" fill="none" stroke="#DC2626" strokeWidth="6" strokeDasharray={`${pendienteDash} ${circumference}`} strokeDashoffset={`${-(vigenteDash + porVencerDash)}`} strokeLinecap="round" />
+                              </>}
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="text-[16px] font-bold" style={{ color: '#111' }}>{pct}%</span>
+                            </div>
+                          </div>
+                          <div className="flex-1 space-y-1.5">
+                            {[
+                              { label: 'Vigentes', value: vigentes, color: '#059669' },
+                              { label: 'Por vencer', value: porVencer, color: '#D97706' },
+                              { label: 'Pendientes', value: pendientes, color: '#DC2626' },
+                            ].map((item, j) => (
+                              <div key={j} className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-2 h-2 rounded-full" style={{ background: item.color }}></div>
+                                  <span className="text-[11px]" style={{ color: '#666' }}>{item.label}</span>
+                                </div>
+                                <span className="text-[12px] font-semibold" style={{ color: '#333' }}>{item.value}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Chart 2: Contrapartes por tipo */}
+                  {(() => {
+                    const contrasOnly = contrapartes.filter(c => c.tipo_relacion !== 'empleado');
+                    const tipos = [
+                      { key: 'cliente', label: 'Clientes', color: '#2563EB' },
+                      { key: 'proveedor', label: 'Proveedores', color: '#7C3AED' },
+                      { key: 'aliado', label: 'Aliados', color: '#D97706' },
+                    ];
+                    const counts = tipos.map(t => ({ ...t, value: contrasOnly.filter(c => c.tipo_relacion === t.key).length }));
+                    const otherCount = contrasOnly.length - counts.reduce((s, c) => s + c.value, 0);
+                    if (otherCount > 0) counts.push({ key: 'otro', label: 'Otros', color: '#999', value: otherCount });
+                    const maxVal = Math.max(...counts.map(c => c.value), 1);
+                    return (
+                      <div className="rounded-xl p-5" style={cardStyle}>
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.12em] mb-4" style={{ color: '#999' }}>Contrapartes por Tipo</div>
+                        <div className="space-y-3">
+                          {counts.map((item, j) => (
+                            <div key={j}>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[11px]" style={{ color: '#666' }}>{item.label}</span>
+                                <span className="text-[12px] font-semibold" style={{ color: '#333' }}>{item.value}</span>
+                              </div>
+                              <div className="h-2 rounded-full overflow-hidden" style={{ background: '#F3F3F3' }}>
+                                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(item.value / maxVal) * 100}%`, background: item.color, minWidth: item.value > 0 ? '4px' : '0' }}></div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-3 pt-3" style={{ borderTop: '1px solid #F5F5F5' }}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px]" style={{ color: '#999' }}>Total contrapartes</span>
+                            <span className="text-[13px] font-bold" style={{ color: '#111' }}>{contrasOnly.length}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Chart 3: Cobertura documental */}
+                  {(() => {
+                    const docTypes = ['manual', 'matriz', 'fcc'];
+                    const docLabels: Record<string, string> = { manual: 'Manual MM', matriz: 'Matriz de Riesgo', fcc: 'Formulario FCC' };
+                    const docColors: Record<string, string> = { manual: '#2563EB', matriz: '#059669', fcc: '#7C3AED' };
+                    const coverage = docTypes.map(t => ({ type: t, label: docLabels[t], color: docColors[t], generated: historialDocumentos.some(d => d.tipo === t) }));
+                    const generatedCount = coverage.filter(c => c.generated).length;
+                    const pct = Math.round((generatedCount / docTypes.length) * 100);
+                    return (
+                      <div className="rounded-xl p-5" style={cardStyle}>
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.12em] mb-4" style={{ color: '#999' }}>Cobertura Documental</div>
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="text-[28px] font-bold" style={{ color: '#111' }}>{pct}%</div>
+                          <div className="text-[11px] leading-tight" style={{ color: '#999' }}>{generatedCount} de {docTypes.length}<br />documentos generados</div>
+                        </div>
+                        <div className="space-y-2">
+                          {coverage.map((doc, j) => (
+                            <div key={j} className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0" style={{ background: doc.generated ? doc.color : '#F3F3F3' }}>
+                                {doc.generated ? (
+                                  <svg className="w-2.5 h-2.5" fill="none" stroke="white" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                ) : (
+                                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#CCC' }}></div>
+                                )}
+                              </div>
+                              <span className="text-[11px]" style={{ color: doc.generated ? '#333' : '#BBB' }}>{doc.label}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {generatedCount < docTypes.length && (
+                          <button onClick={() => setActiveView('documentos')} className="w-full mt-3 py-1.5 rounded-lg text-[11px] font-medium" style={{ background: '#F5F5F5', color: '#555' }}>
+                            Completar documentación
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
               {/* Quick actions */}
               <div className="grid md:grid-cols-3 gap-4 mb-6">
                 {[
@@ -448,7 +583,7 @@ export default function DashboardPage() {
                 <div className="mb-6">
                   <h3 className="text-[12px] font-semibold uppercase tracking-[0.1em] mb-3" style={{ color: '#999' }}>Documentos recientes</h3>
                   <div className="rounded-xl overflow-hidden" style={cardStyle}>
-                    {historialDocumentos.slice(0, 6).map((doc, i) => (
+                    {historialDocumentos.slice(0, 8).map((doc, i) => (
                       <div key={doc.id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors" style={i > 0 ? { borderTop: '1px solid #F5F5F5' } : {}}>
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[9px] font-bold" style={{ background: getDocColor(doc.tipo) }}>{getDocExt(doc.tipo)[0]}</div>
@@ -462,6 +597,10 @@ export default function DashboardPage() {
                         </button>
                       </div>
                     ))}
+                  </div>
+                  <div className="mt-2 px-4 py-2 flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="#BBB" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span className="text-[11px]" style={{ color: '#BBB' }}>Tus documentos quedan guardados aquí. Descárgalos cuando quieras con el botón de descarga.</span>
                   </div>
                 </div>
               )}
