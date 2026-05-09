@@ -20,6 +20,7 @@ interface EmpresaData {
   sector_nombre: string;
   codigo_ciiu: string;
   perfil_riesgo: string;
+  regimen: string;
   created_at: string;
 }
 
@@ -216,7 +217,7 @@ export default function DashboardPage() {
       }
       const { data: saved, error: dbError } = await supabase.from('contrapartes').insert({ empresa_id: empresaGuardada.id, tipo_persona: finalData.tipo_persona || 'juridica', tipo_relacion: finalData.tipo_relacion || 'cliente', razon_social: finalData.razon_social || '', nit_cc: finalData.nit_cc || finalData.nit || '', representante_legal: finalData.representante_legal || '', ciudad: finalData.ciudad || '', estado: 'activo', datos_extraidos: finalData.datos_extraidos ? finalData : null }).select().single();
       if (dbError) { setError('Error guardando: ' + dbError.message); setLoadingContraparte(false); return; }
-      if (saved) { setContrapartes(prev => [saved, ...prev]); setShowNuevaContraparte(false); setContraparteForm({ tipo_persona: 'juridica', tipo_relacion: 'cliente', razon_social: '', nit_cc: '', representante_legal: '', ciudad: '', certificadoBase64: '', certificadoNombre: '' }); if (user) { await logActivity(empresaGuardada.id, user.email, 'registrar_contraparte', `Contraparte: ${saved.razon_social}`); const regimen = ((empresaGuardada as any).regimen || 'minimas') as Regimen; await crearEventosParaEntidad(supabase, empresaGuardada.id, user.email, regimen, saved.id, 'contraparte', saved.razon_social || ''); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); } }
+      if (saved) { setContrapartes(prev => [saved, ...prev]); setShowNuevaContraparte(false); setContraparteForm({ tipo_persona: 'juridica', tipo_relacion: 'cliente', razon_social: '', nit_cc: '', representante_legal: '', ciudad: '', certificadoBase64: '', certificadoNombre: '' }); if (user) { await logActivity(empresaGuardada.id, user.email, 'registrar_contraparte', `Contraparte: ${saved.razon_social}`); const regimen = (empresaGuardada.regimen || 'minimas') as Regimen; await crearEventosParaEntidad(supabase, empresaGuardada.id, user.email, regimen, saved.id, 'contraparte', saved.razon_social || ''); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); } }
     } catch (err) { setError(err instanceof Error ? err.message : 'Error al guardar contraparte'); }
     finally { setLoadingContraparte(false); }
   };
@@ -227,7 +228,7 @@ export default function DashboardPage() {
       const cpData = { ...contraparte, ...(contraparte.datos_extraidos || {}), razon_social: contraparte.razon_social || contraparte.datos_extraidos?.razon_social || '', nit_cc: contraparte.nit_cc || contraparte.datos_extraidos?.nit_cc || contraparte.datos_extraidos?.nit || '', representante_legal: contraparte.representante_legal || contraparte.datos_extraidos?.representante_legal || '', ciudad: contraparte.ciudad || contraparte.datos_extraidos?.ciudad || '', direccion: contraparte.datos_extraidos?.direccion || '', objeto_social: contraparte.datos_extraidos?.objeto_social || '', cedula_rep_legal: contraparte.datos_extraidos?.cedula_rep_legal || '' };
       const resp = await fetch('/api/generar-fcc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, DIRECCION: (empresaGuardada as any).direccion || '', CONTRAPARTE: cpData }) });
       const result = await resp.json();
-      if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); await saveDocumento(empresaGuardada.id, 'fcc', result.filename, result.base64); if (user) { const regimen = ((empresaGuardada as any).regimen || 'minimas') as Regimen; await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'actualizar_fcc_contraparte', contraparte.id, contraparte.razon_social); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); } }
+      if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); await saveDocumento(empresaGuardada.id, 'fcc', result.filename, result.base64); if (user) { const regimen = (empresaGuardada.regimen || 'minimas') as Regimen; await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'actualizar_fcc_contraparte', contraparte.id, contraparte.razon_social); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); } }
       else { setError('Error generando FCC: ' + (result.error || 'intenta de nuevo')); }
     } catch (err) { console.error('Error generating FCC:', err); setError('Error de conexión al generar FCC'); }
   };
@@ -238,7 +239,7 @@ export default function DashboardPage() {
       const cpData = { ...contraparte, ...(contraparte.datos_extraidos || {}), razon_social: contraparte.razon_social || contraparte.datos_extraidos?.razon_social || '', nit_cc: contraparte.nit_cc || contraparte.datos_extraidos?.nit_cc || contraparte.datos_extraidos?.nit || '', representante_legal: contraparte.representante_legal || contraparte.datos_extraidos?.representante_legal || '', ciudad: contraparte.ciudad || contraparte.datos_extraidos?.ciudad || '', direccion: contraparte.datos_extraidos?.direccion || '' };
       const resp = await fetch('/api/generar-listas-restrictivas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, CONTRAPARTE: cpData }) });
       const result = await resp.json();
-      if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'); await saveDocumento(empresaGuardada.id, 'listas_restrictivas', result.filename, result.base64); if (user) { await logActivity(empresaGuardada.id, user.email, 'generar_listas_restrictivas', `Contraparte: ${cpData.razon_social}`); const regimen = ((empresaGuardada as any).regimen || 'minimas') as Regimen; await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'consultar_listas_contraparte', contraparte.id, cpData.razon_social); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); } }
+      if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'); await saveDocumento(empresaGuardada.id, 'listas_restrictivas', result.filename, result.base64); if (user) { await logActivity(empresaGuardada.id, user.email, 'generar_listas_restrictivas', `Contraparte: ${cpData.razon_social}`); const regimen = (empresaGuardada.regimen || 'minimas') as Regimen; await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'consultar_listas_contraparte', contraparte.id, cpData.razon_social); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); } }
       else { setError('Error generando Listas Restrictivas: ' + (result.error || 'intenta de nuevo')); }
     } catch (err) { console.error('Error generating listas restrictivas:', err); setError('Error de conexión al generar Listas Restrictivas'); }
   };
@@ -317,7 +318,7 @@ export default function DashboardPage() {
       if (result.success && result.base64) {
         dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         await saveDocumento(empresaGuardada.id, 'fer', result.filename, result.base64);
-        if (user) { await logActivity(empresaGuardada.id, user.email, 'generar_fer', `FER: ${ferForm.naturaleza} — ${ferForm.contraparte_nombre || 'sin contraparte'}`); const regimen = ((empresaGuardada as any).regimen || 'minimas') as Regimen; await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'revision_fer'); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); }
+        if (user) { await logActivity(empresaGuardada.id, user.email, 'generar_fer', `FER: ${ferForm.naturaleza} — ${ferForm.contraparte_nombre || 'sin contraparte'}`); const regimen = (empresaGuardada.regimen || 'minimas') as Regimen; await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'revision_fer'); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); }
         setShowFerForm(false);
       } else { setError('Error generando FER: ' + (result.error || 'intenta de nuevo')); }
     } catch (err) { setError('Error de conexión al generar FER'); }
@@ -351,7 +352,7 @@ export default function DashboardPage() {
       const datosExtra = { cargo: trabajadorForm.cargo, area: trabajadorForm.area, fecha_ingreso: trabajadorForm.fecha_ingreso, fecha_ultima_declaracion: null, capacitado: false, fecha_capacitacion: null };
       const { data: saved, error: dbError } = await supabase.from('contrapartes').insert({ empresa_id: empresaGuardada.id, tipo_persona: 'natural', tipo_relacion: 'empleado', razon_social: trabajadorForm.nombre, nit_cc: trabajadorForm.cedula, estado: 'activo', datos_extraidos: datosExtra }).select().single();
       if (dbError) { setError('Error guardando: ' + dbError.message); return; }
-      if (saved) { setTrabajadores(prev => [saved, ...prev]); setContrapartes(prev => [saved, ...prev]); setShowNuevoTrabajador(false); setTrabajadorForm({ nombre: '', cedula: '', cargo: '', area: '', fecha_ingreso: '', contratoBase64: '', contratoNombre: '' }); if (user) { await logActivity(empresaGuardada.id, user.email, 'registrar_trabajador', `Trabajador: ${saved.razon_social}`); const regimen = ((empresaGuardada as any).regimen || 'minimas') as Regimen; await crearEventosParaEntidad(supabase, empresaGuardada.id, user.email, regimen, saved.id, 'trabajador', saved.razon_social || ''); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); } }
+      if (saved) { setTrabajadores(prev => [saved, ...prev]); setContrapartes(prev => [saved, ...prev]); setShowNuevoTrabajador(false); setTrabajadorForm({ nombre: '', cedula: '', cargo: '', area: '', fecha_ingreso: '', contratoBase64: '', contratoNombre: '' }); if (user) { await logActivity(empresaGuardada.id, user.email, 'registrar_trabajador', `Trabajador: ${saved.razon_social}`); const regimen = (empresaGuardada.regimen || 'minimas') as Regimen; await crearEventosParaEntidad(supabase, empresaGuardada.id, user.email, regimen, saved.id, 'trabajador', saved.razon_social || ''); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); } }
     } catch (err) { setError(err instanceof Error ? err.message : 'Error al guardar'); }
   };
 
@@ -368,7 +369,7 @@ export default function DashboardPage() {
         const updatedDatos = { ...(trabajador.datos_extraidos || {}), fecha_ultima_declaracion: now };
         await supabase.from('contrapartes').update({ datos_extraidos: updatedDatos }).eq('id', trabajador.id);
         setTrabajadores(prev => prev.map(t => t.id === trabajador.id ? { ...t, datos_extraidos: updatedDatos } : t));
-        if (user) { const regimen = ((empresaGuardada as any).regimen || 'minimas') as Regimen; await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'declaracion_trabajador', trabajador.id, trabajador.razon_social); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); }
+        if (user) { const regimen = (empresaGuardada.regimen || 'minimas') as Regimen; await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'declaracion_trabajador', trabajador.id, trabajador.razon_social); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); }
       } else { setError('Error generando declaración: ' + (result.error || 'intenta de nuevo')); }
     } catch (err) { setError('Error de conexión al generar declaración'); }
     finally { setLoadingDeclaracion(null); }
@@ -379,7 +380,7 @@ export default function DashboardPage() {
     const updatedDatos = { ...(trabajador.datos_extraidos || {}), capacitado: !wasCapacitado, fecha_capacitacion: !wasCapacitado ? new Date().toISOString() : null };
     await supabase.from('contrapartes').update({ datos_extraidos: updatedDatos }).eq('id', trabajador.id);
     setTrabajadores(prev => prev.map(t => t.id === trabajador.id ? { ...t, datos_extraidos: updatedDatos } : t));
-    if (!wasCapacitado && user && empresaGuardada) { const regimen = ((empresaGuardada as any).regimen || 'minimas') as Regimen; await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'capacitacion_trabajador', trabajador.id, trabajador.razon_social); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); }
+    if (!wasCapacitado && user && empresaGuardada) { const regimen = (empresaGuardada.regimen || 'minimas') as Regimen; await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'capacitacion_trabajador', trabajador.id, trabajador.razon_social); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); }
   };
 
   const getDeclaracionStatus = (trabajador: any) => {
