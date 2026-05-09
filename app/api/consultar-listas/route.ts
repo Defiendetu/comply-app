@@ -188,10 +188,9 @@ async function consultarPEPs(nombre: string, identificacion?: string): Promise<R
   try {
     let url: string;
     if (identificacion) {
-      url = `https://www.datos.gov.co/resource/3qxn-uc22.json?$where=numero_documento='${identificacion}'&$limit=10`;
+      url = `https://www.datos.gov.co/resource/3qxn-uc22.json?numero_documento=${encodeURIComponent(identificacion)}&$limit=10`;
     } else {
-      const query = encodeURIComponent(nombre);
-      url = `https://www.datos.gov.co/resource/3qxn-uc22.json?$where=upper(nombre_pep) like upper('%25${query}%25')&$limit=10`;
+      url = `https://www.datos.gov.co/resource/3qxn-uc22.json?$q=${encodeURIComponent(nombre)}&$limit=10`;
     }
 
     const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
@@ -256,6 +255,7 @@ async function consultarProcuraduria(identificacion: string, apifyToken?: string
     );
 
     if (!runResp.ok) {
+      resultado.resultado = 'no_consultado';
       resultado.detalles = 'Error iniciando scraper de Procuraduría';
       return resultado;
     }
@@ -263,6 +263,7 @@ async function consultarProcuraduria(identificacion: string, apifyToken?: string
     const runData = await runResp.json();
     const runId = runData.data?.id;
     if (!runId) {
+      resultado.resultado = 'no_consultado';
       resultado.detalles = 'No se pudo obtener ID del run';
       return resultado;
     }
@@ -302,6 +303,7 @@ async function consultarProcuraduria(identificacion: string, apifyToken?: string
         }
         break;
       } else if (status === 'FAILED' || status === 'ABORTED') {
+        resultado.resultado = 'no_consultado';
         resultado.detalles = `Scraper terminó con estado: ${status}`;
         break;
       }
@@ -309,9 +311,11 @@ async function consultarProcuraduria(identificacion: string, apifyToken?: string
     }
 
     if (attempts >= 12) {
+      resultado.resultado = 'no_consultado';
       resultado.detalles = 'Timeout esperando respuesta del scraper';
     }
   } catch (err: any) {
+    resultado.resultado = 'no_consultado';
     resultado.detalles = `Error: ${err.message}`;
   }
 
@@ -349,6 +353,7 @@ async function consultarContraloria(identificacion: string, apifyToken?: string)
     );
 
     if (!runResp.ok) {
+      resultado.resultado = 'no_consultado';
       resultado.detalles = 'Error iniciando scraper de Contraloría';
       return resultado;
     }
@@ -356,6 +361,7 @@ async function consultarContraloria(identificacion: string, apifyToken?: string)
     const runData = await runResp.json();
     const runId = runData.data?.id;
     if (!runId) {
+      resultado.resultado = 'no_consultado';
       resultado.detalles = 'No se pudo obtener ID del run';
       return resultado;
     }
@@ -395,6 +401,7 @@ async function consultarContraloria(identificacion: string, apifyToken?: string)
         }
         break;
       } else if (status === 'FAILED' || status === 'ABORTED') {
+        resultado.resultado = 'no_consultado';
         resultado.detalles = `Scraper terminó con estado: ${status}`;
         break;
       }
@@ -402,9 +409,11 @@ async function consultarContraloria(identificacion: string, apifyToken?: string)
     }
 
     if (attempts >= 12) {
+      resultado.resultado = 'no_consultado';
       resultado.detalles = 'Timeout esperando respuesta del scraper';
     }
   } catch (err: any) {
+    resultado.resultado = 'no_consultado';
     resultado.detalles = `Error: ${err.message}`;
   }
 

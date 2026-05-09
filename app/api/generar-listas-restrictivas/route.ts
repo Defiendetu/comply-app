@@ -179,6 +179,8 @@ export async function POST(request: NextRequest) {
     const cpCiudad = contraparte.ciudad || '';
     const cpDireccion = contraparte.direccion || '';
 
+    const screening = d.SCREENING || null;
+
     const fechaConsulta = new Date().toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
     const fechaVencimiento = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -294,36 +296,103 @@ export async function POST(request: NextRequest) {
           new Paragraph({
             spacing: { after: 120 },
             border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: C.AZUL_MEDIO, space: 4 } },
-            children: [new TextRun({ text: 'C. RESULTADO DE LA VERIFICACIÓN', size: 22, bold: true, font: 'Arial', color: C.AZUL_OSCURO })],
+            children: [new TextRun({ text: 'C. RESULTADO DE LA VERIFICACIÓN AUTOMATIZADA', size: 22, bold: true, font: 'Arial', color: C.AZUL_OSCURO })],
           }),
-          new Table({
-            width: { size: 9360, type: WidthType.DXA },
-            columnWidths: [9360],
-            rows: [
-              new TableRow({ children: [headerCell('CONCLUSIÓN DE LA CONSULTA', 9360)] }),
-              new TableRow({ children: [new TableCell({
-                borders, width: { size: 9360, type: WidthType.DXA },
-                margins: { top: 80, bottom: 80, left: 120, right: 120 },
-                children: [
-                  new Paragraph({ spacing: { after: 80 }, children: [
-                    new TextRun({ text: '☐  ', size: 20, font: 'Arial', color: C.VERDE }),
-                    new TextRun({ text: 'SIN COINCIDENCIAS ', bold: true, size: 20, font: 'Arial', color: C.VERDE }),
-                    new TextRun({ text: '— La contraparte NO aparece en ninguna lista restrictiva o vinculante consultada.', size: 18, font: 'Arial', color: '333333' }),
-                  ] }),
-                  new Paragraph({ spacing: { after: 80 }, children: [
-                    new TextRun({ text: '☐  ', size: 20, font: 'Arial', color: C.AMARILLO }),
-                    new TextRun({ text: 'COINCIDENCIA PARCIAL ', bold: true, size: 20, font: 'Arial', color: C.AMARILLO }),
-                    new TextRun({ text: '— Se encontró coincidencia en homonimia. Requiere verificación adicional.', size: 18, font: 'Arial', color: '333333' }),
-                  ] }),
-                  new Paragraph({ spacing: { after: 80 }, children: [
-                    new TextRun({ text: '☐  ', size: 20, font: 'Arial', color: C.ROJO }),
-                    new TextRun({ text: 'COINCIDENCIA POSITIVA ', bold: true, size: 20, font: 'Arial', color: C.ROJO }),
-                    new TextRun({ text: '— La contraparte aparece en lista(s) restrictiva(s). Se debe escalar y reportar.', size: 18, font: 'Arial', color: '333333' }),
-                  ] }),
-                ],
-              })] }),
-            ],
-          }),
+          ...(screening && screening.resultados ? [
+            // Screening results table
+            new Table({
+              width: { size: 9360, type: WidthType.DXA },
+              columnWidths: [3500, 2800, 3060],
+              rows: [
+                new TableRow({ children: [
+                  headerCell('LISTA CONSULTADA', 3500),
+                  headerCell('FUENTE', 2800),
+                  headerCell('RESULTADO', 3060),
+                ] }),
+                ...(screening.resultados as any[]).map((r: any, i: number) => new TableRow({ children: [
+                  new TableCell({
+                    borders, width: { size: 3500, type: WidthType.DXA },
+                    shading: { fill: i % 2 === 0 ? C.BLANCO : C.GRIS_CLARO, type: ShadingType.CLEAR },
+                    margins: { top: 50, bottom: 50, left: 100, right: 100 },
+                    children: [new Paragraph({ children: [new TextRun({ text: r.lista || '', size: 17, font: 'Arial', bold: true, color: '333333' })] })],
+                  }),
+                  new TableCell({
+                    borders, width: { size: 2800, type: WidthType.DXA },
+                    shading: { fill: i % 2 === 0 ? C.BLANCO : C.GRIS_CLARO, type: ShadingType.CLEAR },
+                    margins: { top: 50, bottom: 50, left: 100, right: 100 },
+                    children: [new Paragraph({ children: [new TextRun({ text: r.fuente || '', size: 16, font: 'Arial', color: C.GRIS_MEDIO })] })],
+                  }),
+                  new TableCell({
+                    borders, width: { size: 3060, type: WidthType.DXA },
+                    shading: { fill: r.resultado === 'coincidencia_positiva' ? C.ROJO_FONDO : r.resultado === 'coincidencia_parcial' ? C.AMARILLO_FONDO : r.resultado === 'no_consultado' ? C.AMARILLO_FONDO : C.VERDE_FONDO, type: ShadingType.CLEAR },
+                    margins: { top: 50, bottom: 50, left: 100, right: 100 },
+                    children: [
+                      new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({
+                        text: r.resultado === 'coincidencia_positiva' ? '⚠ COINCIDENCIA' : r.resultado === 'coincidencia_parcial' ? '~ PARCIAL' : r.resultado === 'no_consultado' ? '— No consultado' : '✓ Sin coincidencias',
+                        size: 16, font: 'Arial', bold: true,
+                        color: r.resultado === 'coincidencia_positiva' ? C.ROJO : r.resultado === 'coincidencia_parcial' ? C.AMARILLO : r.resultado === 'no_consultado' ? C.AMARILLO : C.VERDE,
+                      })] }),
+                      ...(r.detalles ? [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: r.detalles, size: 14, font: 'Arial', color: C.GRIS_MEDIO, italics: true })] })] : []),
+                    ],
+                  }),
+                ] })),
+              ],
+            }),
+            emptyPara(150),
+            // Conclusion box
+            new Table({
+              width: { size: 9360, type: WidthType.DXA },
+              columnWidths: [9360],
+              rows: [
+                new TableRow({ children: [headerCell('CONCLUSIÓN', 9360)] }),
+                new TableRow({ children: [new TableCell({
+                  borders, width: { size: 9360, type: WidthType.DXA },
+                  shading: { fill: screening.conclusion === 'coincidencia_positiva' ? C.ROJO_FONDO : screening.conclusion === 'coincidencia_parcial' ? C.AMARILLO_FONDO : C.VERDE_FONDO, type: ShadingType.CLEAR },
+                  margins: { top: 80, bottom: 80, left: 120, right: 120 },
+                  children: [
+                    new Paragraph({ spacing: { after: 60 }, children: [new TextRun({
+                      text: screening.conclusion === 'coincidencia_positiva' ? '⚠ COINCIDENCIA POSITIVA — Se debe escalar y reportar'
+                        : screening.conclusion === 'coincidencia_parcial' ? '~ COINCIDENCIA PARCIAL — Requiere verificación adicional'
+                        : '✓ SIN COINCIDENCIAS — La contraparte no aparece en las listas consultadas',
+                      size: 20, font: 'Arial', bold: true,
+                      color: screening.conclusion === 'coincidencia_positiva' ? C.ROJO : screening.conclusion === 'coincidencia_parcial' ? C.AMARILLO : C.VERDE,
+                    })] }),
+                    new Paragraph({ children: [new TextRun({ text: screening.recomendacion || '', size: 18, font: 'Arial', color: C.GRIS_OSCURO })] }),
+                  ],
+                })] }),
+              ],
+            }),
+          ] : [
+            // Fallback: manual checkboxes when no screening data
+            new Table({
+              width: { size: 9360, type: WidthType.DXA },
+              columnWidths: [9360],
+              rows: [
+                new TableRow({ children: [headerCell('CONCLUSIÓN DE LA CONSULTA', 9360)] }),
+                new TableRow({ children: [new TableCell({
+                  borders, width: { size: 9360, type: WidthType.DXA },
+                  margins: { top: 80, bottom: 80, left: 120, right: 120 },
+                  children: [
+                    new Paragraph({ spacing: { after: 80 }, children: [
+                      new TextRun({ text: '☐  ', size: 20, font: 'Arial', color: C.VERDE }),
+                      new TextRun({ text: 'SIN COINCIDENCIAS ', bold: true, size: 20, font: 'Arial', color: C.VERDE }),
+                      new TextRun({ text: '— La contraparte NO aparece en ninguna lista restrictiva o vinculante consultada.', size: 18, font: 'Arial', color: '333333' }),
+                    ] }),
+                    new Paragraph({ spacing: { after: 80 }, children: [
+                      new TextRun({ text: '☐  ', size: 20, font: 'Arial', color: C.AMARILLO }),
+                      new TextRun({ text: 'COINCIDENCIA PARCIAL ', bold: true, size: 20, font: 'Arial', color: C.AMARILLO }),
+                      new TextRun({ text: '— Se encontró coincidencia en homonimia. Requiere verificación adicional.', size: 18, font: 'Arial', color: '333333' }),
+                    ] }),
+                    new Paragraph({ spacing: { after: 80 }, children: [
+                      new TextRun({ text: '☐  ', size: 20, font: 'Arial', color: C.ROJO }),
+                      new TextRun({ text: 'COINCIDENCIA POSITIVA ', bold: true, size: 20, font: 'Arial', color: C.ROJO }),
+                      new TextRun({ text: '— La contraparte aparece en lista(s) restrictiva(s). Se debe escalar y reportar.', size: 18, font: 'Arial', color: '333333' }),
+                    ] }),
+                  ],
+                })] }),
+              ],
+            }),
+          ]),
           emptyPara(100),
 
           // OBSERVACIONES
