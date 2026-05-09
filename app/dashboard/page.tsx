@@ -96,12 +96,18 @@ export default function DashboardPage() {
   }, [loading]);
 
   useEffect(() => {
-    const s = localStorage.getItem('complyUser');
-    if (s) {
-      const u = JSON.parse(s);
-      if (u.loggedIn) { setUser(u); loadEmpresaData(u.email); }
-      else { router.push('/login'); }
-    } else { router.push('/login'); }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser({ email: session.user.email || '', empresa: '' });
+        loadEmpresaData(session.user.email || '');
+      } else {
+        router.push('/login');
+      }
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) router.push('/login');
+    });
+    return () => subscription.unsubscribe();
   }, [router]);
 
   async function loadEmpresaData(email: string) {
@@ -271,7 +277,7 @@ export default function DashboardPage() {
     return { status: 'vigente', color: '#059669', bg: '#ECFDF5', label: 'Vigente' };
   };
 
-  const handleLogout = () => { localStorage.removeItem('complyUser'); router.push('/login'); };
+  const handleLogout = async () => { await supabase.auth.signOut(); router.push('/login'); };
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     if (file.type !== 'application/pdf') { setError('Solo archivos PDF'); return; }
