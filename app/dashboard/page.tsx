@@ -268,6 +268,37 @@ export default function DashboardPage() {
         const pendingPolls: Promise<void>[] = [];
         if (screenResult.procuraduriaRunId) pendingPolls.push(pollScraperStatus(screenResult.procuraduriaRunId, 'procuraduria', 'Procuraduría'));
         if (screenResult.contraloriaRunId) pendingPolls.push(pollScraperStatus(screenResult.contraloriaRunId, 'contraloria', 'Contraloría'));
+
+        // Guardar consulta en consultas_listas para historial
+        await supabase.from('consultas_listas').insert({
+          empresa_id: empresaGuardada.id,
+          contraparte_id: contraparte.id,
+          nombre_consultado: cpData.razon_social,
+          proveedor: 'comply_screening',
+          resultado: screenResult.conclusion || 'pendiente',
+          detalle_resultado: screenResult,
+        });
+
+        // Completar obligación del calendario (con guardia anti-duplicado mismo día)
+        if (user) {
+          const today = new Date().toISOString().split('T')[0];
+          const { data: completedToday } = await supabase
+            .from('eventos_calendario')
+            .select('id')
+            .eq('empresa_id', empresaGuardada.id)
+            .eq('obligacion_key', 'consultar_listas_contraparte')
+            .eq('entidad_id', contraparte.id)
+            .eq('estado', 'completado')
+            .gte('fecha_completado', today + 'T00:00:00.000Z')
+            .limit(1);
+
+          if (!completedToday || completedToday.length === 0) {
+            const regimen = (empresaGuardada.regimen || 'minimas') as Regimen;
+            await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'consultar_listas_contraparte', contraparte.id, cpData.razon_social);
+            const prox = await getProximosEventos(supabase, empresaGuardada.id, 5);
+            setProximosEventos(prox);
+          }
+        }
       }
       else { setScreeningResultados({ error: true, message: screenResult.error }); }
     } catch (err) { setScreeningResultados({ error: true, message: 'Error de conexión' }); }
@@ -331,7 +362,7 @@ export default function DashboardPage() {
       }
       const resp = await fetch('/api/generar-listas-restrictivas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, CONTRAPARTE: screeningContraparte, SCREENING: currentResults }) });
       const result = await resp.json();
-      if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'); await saveDocumento(empresaGuardada.id, 'listas_restrictivas', result.filename, result.base64); if (user) { await logActivity(empresaGuardada.id, user.email, 'generar_listas_restrictivas', `Contraparte: ${screeningContraparte.razon_social}`); const regimen = (empresaGuardada.regimen || 'minimas') as Regimen; await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'consultar_listas_contraparte', screeningContraparte.id, screeningContraparte.razon_social); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); } }
+      if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'); await saveDocumento(empresaGuardada.id, 'listas_restrictivas', result.filename, result.base64); if (user) { await logActivity(empresaGuardada.id, user.email, 'generar_listas_restrictivas', `Contraparte: ${screeningContraparte.razon_social}`); } }
       else { setError('Error generando documento: ' + (result.error || 'intenta de nuevo')); }
     } catch (err) { setError('Error de conexión al generar documento'); }
   };
