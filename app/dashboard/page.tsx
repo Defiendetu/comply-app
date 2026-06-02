@@ -499,84 +499,34 @@ export default function DashboardPage() {
   const handleCanalesChange = (c: string) => { setFormData(p => ({ ...p, canales: p.canales.includes(c) ? p.canales.filter(x => x !== c) : [...p.canales, c] })); };
 
   const handleSubmit = async () => {
-    if (!empresaGuardada && !formData.certificadoBase64) { setError('Sube el Certificado de Cámara de Comercio'); return; }
+    if (!formData.certificadoBase64) { setError('Sube el Certificado de Cámara de Comercio'); return; }
     if (!formData.manejaEfectivo) { setError('Indica si manejas efectivo'); return; }
     if (!formData.operaExtranjeros) { setError('Indica si operas con extranjeros'); return; }
     if (formData.canales.length === 0) { setError('Selecciona al menos un canal'); return; }
     setLoading(true); setError('');
     try {
-      if (empresaGuardada) {
-        // Empresa ya registrada: generar documentos directamente via API routes locales
-        const empresaPayload = {
-          RAZON_SOCIAL: empresaGuardada.razon_social,
-          RAZON_SOCIAL_CORTO: empresaGuardada.razon_social_corto || empresaGuardada.razon_social,
-          NIT: empresaGuardada.nit,
-          TIPO_SOCIEDAD: empresaGuardada.tipo_sociedad || 'SAS',
-          REPRESENTANTE_LEGAL: empresaGuardada.representante_legal,
-          CEDULA_REP_LEGAL: empresaGuardada.cedula_rep_legal || '',
-          CIUDAD: empresaGuardada.ciudad || 'Colombia',
-          SECTOR_NOMBRE: empresaGuardada.sector_nombre || '',
-          CODIGO_CIIU: empresaGuardada.codigo_ciiu || '',
-          PERFIL_RIESGO: empresaGuardada.perfil_riesgo || 'MEDIO',
-          MANEJA_EFECTIVO: formData.manejaEfectivo,
-          OPERA_EXTRANJEROS: formData.operaExtranjeros,
-          CANALES: formData.canales.join(', '),
-        };
-        const [manualRes, matrizRes, fccRes] = await Promise.all([
-          fetch('/api/generar-manual', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(empresaPayload) }),
-          fetch('/api/generar-matriz', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(empresaPayload) }),
-          fetch('/api/generar-fcc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(empresaPayload) }),
-        ]);
-        const manualData = await manualRes.json();
-        const matrizData = await matrizRes.json();
-        const fccData = await fccRes.json();
-        if (!manualData.base64 && !matrizData.base64 && !fccData.base64) throw new Error('No se pudieron generar los documentos');
-        const manualB64 = manualData.base64 || '';
-        const matrizB64 = matrizData.base64 || '';
-        const fccB64 = fccData.base64 || '';
-        const manualNom = manualData.filename || manualData.nombre || `Manual_${empresaGuardada.razon_social_corto || 'Empresa'}.docx`;
-        const matrizNom = matrizData.filename || matrizData.nombre || `Matriz_${empresaGuardada.razon_social_corto || 'Empresa'}.xlsx`;
-        const fccNom = fccData.filename || fccData.nombre || `FCC_${empresaGuardada.razon_social_corto || 'Empresa'}.xlsx`;
-        setDocumentosGenerados({ manualBase64: manualB64, manualNombre: manualNom, matrizBase64: matrizB64, matrizNombre: matrizNom, fccBase64: fccB64, fccNombre: fccNom, empresa: empresaGuardada.razon_social, nit: empresaGuardada.nit, representante: empresaGuardada.representante_legal });
+      const r = await fetch('https://defiendetetu.app.n8n.cloud/webhook/generar-documentos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ certificadoBase64: formData.certificadoBase64, manejaEfectivo: formData.manejaEfectivo, operaExtranjeros: formData.operaExtranjeros, canales: formData.canales.join(', '), tieneOficialCumplimiento: formData.tieneOficialCumplimiento || 'no', realizaDebidaDiligencia: formData.realizaDebidaDiligencia || 'no', consultaListasRestrictivas: formData.consultaListasRestrictivas || 'no', tieneProcedimientoROS: formData.tieneProcedimientoROS || 'no', capacitaPersonal: formData.capacitaPersonal || 'no' }) });
+      const t = await r.text(); let d; try { d = JSON.parse(t); } catch { throw new Error('Error al procesar respuesta'); }
+      if (d.success) {
+        setDocumentosGenerados({ manualBase64: d.documentos?.manual?.base64||'', manualNombre: d.documentos?.manual?.nombre||'Manual.docx', matrizBase64: d.documentos?.matriz?.base64||'', matrizNombre: d.documentos?.matriz?.nombre||'Matriz.xlsx', fccBase64: d.documentos?.fcc?.base64||'', fccNombre: d.documentos?.fcc?.nombre||'FCC.xlsx', empresa: d.empresa||'', nit: d.nit||'', representante: d.representante||'' });
         if (user) {
-          if (manualB64) await saveDocumento(empresaGuardada.id, 'manual', manualNom, manualB64);
-          if (matrizB64) await saveDocumento(empresaGuardada.id, 'matriz', matrizNom, matrizB64);
-          if (fccB64) await saveDocumento(empresaGuardada.id, 'fcc', fccNom, fccB64);
-          await logActivity(empresaGuardada.id, user.email, 'generar_documentos', `Manual + Matriz + FCC regenerados para ${empresaGuardada.razon_social}`);
-          const regimen = 'minimas' as Regimen;
-          if (manualB64) await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'renovar_manual');
-          if (matrizB64) await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'renovar_matriz');
-          if (fccB64) await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'renovar_fcc');
-          const prox = await getProximosEventos(supabase, empresaGuardada.id, 5);
-          setProximosEventos(prox);
-          await loadEmpresaData(user.email);
+          const empresaId = await saveEmpresa({ empresa: d.empresa, nit: d.nit, representante: d.representante, empresaCorto: d.empresa, sectorNombre: d.documentos?.matriz?.sector || '', codigoCiiu: d.documentos?.matriz?.ciiu || '', perfilRiesgo: d.documentos?.matriz?.perfil || 'MEDIO' }, user.email);
+          if (empresaId) {
+            if (d.documentos?.manual?.base64) await saveDocumento(empresaId, 'manual', d.documentos.manual.nombre, d.documentos.manual.base64);
+            if (d.documentos?.matriz?.base64) await saveDocumento(empresaId, 'matriz', d.documentos.matriz.nombre, d.documentos.matriz.base64);
+            if (d.documentos?.fcc?.base64) await saveDocumento(empresaId, 'fcc', d.documentos.fcc.nombre, d.documentos.fcc.base64);
+            await logActivity(empresaId, user.email, 'generar_documentos', `Manual + Matriz + FCC generados para ${d.empresa}`);
+            const regimen = 'minimas' as Regimen;
+            await inicializarCalendario(supabase, empresaId, user.email, regimen);
+            if (d.documentos?.manual?.base64) await completarEvento(supabase, empresaId, user.email, regimen, 'renovar_manual');
+            if (d.documentos?.matriz?.base64) await completarEvento(supabase, empresaId, user.email, regimen, 'renovar_matriz');
+            if (d.documentos?.fcc?.base64) await completarEvento(supabase, empresaId, user.email, regimen, 'renovar_fcc');
+            const prox = await getProximosEventos(supabase, empresaId, 5);
+            setProximosEventos(prox);
+          }
         }
         setStep(3);
-      } else {
-        // Primera vez: enviar certificado a n8n para extracción + generación
-        const r = await fetch('https://defiendetetu.app.n8n.cloud/webhook/generar-documentos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ certificadoBase64: formData.certificadoBase64, manejaEfectivo: formData.manejaEfectivo, operaExtranjeros: formData.operaExtranjeros, canales: formData.canales.join(', '), tieneOficialCumplimiento: formData.tieneOficialCumplimiento || 'no', realizaDebidaDiligencia: formData.realizaDebidaDiligencia || 'no', consultaListasRestrictivas: formData.consultaListasRestrictivas || 'no', tieneProcedimientoROS: formData.tieneProcedimientoROS || 'no', capacitaPersonal: formData.capacitaPersonal || 'no' }) });
-        const t = await r.text(); let d; try { d = JSON.parse(t); } catch { throw new Error('Error al procesar respuesta'); }
-        if (d.success) {
-          setDocumentosGenerados({ manualBase64: d.documentos?.manual?.base64||'', manualNombre: d.documentos?.manual?.nombre||'Manual.docx', matrizBase64: d.documentos?.matriz?.base64||'', matrizNombre: d.documentos?.matriz?.nombre||'Matriz.xlsx', fccBase64: d.documentos?.fcc?.base64||'', fccNombre: d.documentos?.fcc?.nombre||'FCC.xlsx', empresa: d.empresa||'', nit: d.nit||'', representante: d.representante||'' });
-          if (user) {
-            const empresaId = await saveEmpresa({ empresa: d.empresa, nit: d.nit, representante: d.representante, empresaCorto: d.empresa, sectorNombre: d.documentos?.matriz?.sector || '', codigoCiiu: d.documentos?.matriz?.ciiu || '', perfilRiesgo: d.documentos?.matriz?.perfil || 'MEDIO' }, user.email);
-            if (empresaId) {
-              if (d.documentos?.manual?.base64) await saveDocumento(empresaId, 'manual', d.documentos.manual.nombre, d.documentos.manual.base64);
-              if (d.documentos?.matriz?.base64) await saveDocumento(empresaId, 'matriz', d.documentos.matriz.nombre, d.documentos.matriz.base64);
-              if (d.documentos?.fcc?.base64) await saveDocumento(empresaId, 'fcc', d.documentos.fcc.nombre, d.documentos.fcc.base64);
-              await logActivity(empresaId, user.email, 'generar_documentos', `Manual + Matriz + FCC generados para ${d.empresa}`);
-              const regimen = 'minimas' as Regimen;
-              await inicializarCalendario(supabase, empresaId, user.email, regimen);
-              if (d.documentos?.manual?.base64) await completarEvento(supabase, empresaId, user.email, regimen, 'renovar_manual');
-              if (d.documentos?.matriz?.base64) await completarEvento(supabase, empresaId, user.email, regimen, 'renovar_matriz');
-              if (d.documentos?.fcc?.base64) await completarEvento(supabase, empresaId, user.email, regimen, 'renovar_fcc');
-              const prox = await getProximosEventos(supabase, empresaId, 5);
-              setProximosEventos(prox);
-            }
-          }
-          setStep(3);
-        } else { setError(d.error || 'Error al generar documentos'); }
-      }
+      } else { setError(d.error || 'Error al generar documentos'); }
     } catch (err) { setError(err instanceof Error ? err.message : 'Error de conexión'); } finally { setLoading(false); }
   };
 
@@ -1958,21 +1908,31 @@ export default function DashboardPage() {
                           </div>
                           <div>
                             <div className="font-semibold text-[14px]" style={{ color: '#111' }}>{empresaGuardada.razon_social}</div>
-                            <div className="text-[11px]" style={{ color: '#999' }}>NIT: {empresaGuardada.nit} &middot; Datos guardados</div>
+                            <div className="text-[11px]" style={{ color: '#999' }}>NIT: {empresaGuardada.nit}</div>
                           </div>
                         </div>
-                        <button onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 rounded-lg text-[11px] font-medium" style={btnSecondary}>Actualizar certificado</button>
-                        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".pdf" className="hidden" />
                       </div>
 
-                      {/* SECTION 1: Main regulatory documents */}
+                      {/* Certificate upload for document generation */}
                       <div className="rounded-xl p-6 mb-6" style={cardStyle}>
-                        <div className="flex items-center justify-between mb-5">
-                          <div>
-                            <h3 className="text-[14px] font-semibold" style={{ color: '#111' }}>Documentos regulatorios</h3>
-                            <p className="text-[11px] mt-0.5" style={{ color: '#999' }}>Generados con IA para tu sector APNFD — Resolución 100-006322 de 2023</p>
-                          </div>
+                        <h3 className="text-[14px] font-semibold mb-1" style={{ color: '#111' }}>Sube tu Certificado de Cámara de Comercio</h3>
+                        <p className="text-[12px] mb-4" style={{ color: '#999' }}>La IA analiza el certificado para generar documentos personalizados con factores de riesgo, señales de alerta y controles específicos de tu sector.</p>
+
+                        <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all hover:border-gray-400"
+                          style={{ borderColor: formData.certificadoBase64 ? '#059669' : '#E0E0E0', background: formData.certificadoBase64 ? '#ECFDF5' : '#FAFAFA' }}>
+                          <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".pdf" className="hidden" />
+                          {formData.certificadoBase64 ? (
+                            <><svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="#059669" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg><p className="font-medium text-[13px]" style={{ color: '#059669' }}>{formData.certificadoNombre}</p></>
+                          ) : (
+                            <><svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="#CCC" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg><p className="font-medium text-[13px]" style={{ color: '#555' }}>Arrastra o haz clic para subir</p><p className="text-[11px] mt-1" style={{ color: '#BBB' }}>PDF — Máximo 10MB</p></>
+                          )}
                         </div>
+                      </div>
+
+                      {/* Documents to generate */}
+                      <div className="rounded-xl p-6 mb-6" style={cardStyle}>
+                        <h3 className="text-[14px] font-semibold mb-1" style={{ color: '#111' }}>Documentos a generar</h3>
+                        <p className="text-[11px] mt-0.5 mb-4" style={{ color: '#999' }}>Generados con IA para tu sector APNFD — Resolución 100-006322 de 2023</p>
 
                         <div className="grid md:grid-cols-3 gap-4 mb-6">
                           {[
@@ -1990,10 +1950,16 @@ export default function DashboardPage() {
                           ))}
                         </div>
 
-                        <button onClick={() => setStep(2)} className="w-full py-3 rounded-lg text-white font-semibold text-[13px]" style={btnPrimary}>
-                          Continuar con la generación
-                          <svg className="w-4 h-4 inline-block ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
-                        </button>
+                        {formData.certificadoBase64 ? (
+                          <button onClick={() => setStep(2)} className="w-full py-3 rounded-lg text-white font-semibold text-[13px]" style={btnPrimary}>
+                            Continuar con la generación
+                            <svg className="w-4 h-4 inline-block ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                          </button>
+                        ) : (
+                          <div className="w-full py-3 rounded-lg text-center text-[13px] font-medium" style={{ background: '#F5F5F5', color: '#BBB' }}>
+                            Sube el certificado para continuar
+                          </div>
+                        )}
                       </div>
 
                       {/* SECTION 2: Additional documents */}
