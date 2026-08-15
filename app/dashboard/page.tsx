@@ -1,8 +1,9 @@
-'use client';
+﻿'use client';
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api-client';
 import { inicializarCalendario, crearEventosParaEntidad, completarEvento, getEventosCalendario, getProximosEventos, actualizarEstados, getEstadoColor, getEstadoLabel, diasRestantes, EventoCalendario } from '@/lib/calendario';
 import { CATEGORIA_LABELS, CATEGORIA_COLORS, Regimen } from '@/lib/obligaciones-minimas';
 
@@ -247,7 +248,7 @@ export default function DashboardPage() {
     if (!empresaGuardada) return;
     try {
       const cpData = { ...contraparte, ...(contraparte.datos_extraidos || {}), razon_social: contraparte.razon_social || contraparte.datos_extraidos?.razon_social || '', nit_cc: contraparte.nit_cc || contraparte.datos_extraidos?.nit_cc || contraparte.datos_extraidos?.nit || '', representante_legal: contraparte.representante_legal || contraparte.datos_extraidos?.representante_legal || '', ciudad: contraparte.ciudad || contraparte.datos_extraidos?.ciudad || '', direccion: contraparte.datos_extraidos?.direccion || '', objeto_social: contraparte.datos_extraidos?.objeto_social || '', cedula_rep_legal: contraparte.datos_extraidos?.cedula_rep_legal || '' };
-      const resp = await fetch('/api/generar-fcc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, DIRECCION: (empresaGuardada as any).direccion || '', CONTRAPARTE: cpData }) });
+      const resp = await apiFetch('/api/generar-fcc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, DIRECCION: (empresaGuardada as any).direccion || '', CONTRAPARTE: cpData }) });
       const result = await resp.json();
       if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); await saveDocumento(empresaGuardada.id, 'fcc', result.filename, result.base64); if (user) { const regimen = (empresaGuardada.regimen || 'minimas') as Regimen; await completarEvento(supabase, empresaGuardada.id, user.email, regimen, 'actualizar_fcc_contraparte', contraparte.id, contraparte.razon_social); const prox = await getProximosEventos(supabase, empresaGuardada.id, 5); setProximosEventos(prox); } }
       else { setError('Error generando FCC: ' + (result.error || 'intenta de nuevo')); }
@@ -261,7 +262,7 @@ export default function DashboardPage() {
     setLoadingScreening(true);
     setScreeningResultados(null);
     try {
-      const screenResp = await fetch('/api/consultar-listas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: cpData.razon_social, identificacion: cpData.nit_cc }) });
+      const screenResp = await apiFetch('/api/consultar-listas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: cpData.razon_social, identificacion: cpData.nit_cc }) });
       const screenResult = await screenResp.json();
       if (screenResult.success) {
         setScreeningResultados(screenResult);
@@ -309,7 +310,7 @@ export default function DashboardPage() {
     for (let i = 0; i < 24; i++) {
       await new Promise(r => setTimeout(r, 8000));
       try {
-        const resp = await fetch('/api/scraper-status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runId, tipo }) });
+        const resp = await apiFetch('/api/scraper-status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runId, tipo }) });
         const data = await resp.json();
         if (data.status === 'completed' && data.resultado) {
           setScreeningResultados((prev: any) => {
@@ -360,7 +361,7 @@ export default function DashboardPage() {
         currentResults.conclusion = 'sin_coincidencia';
         currentResults.recomendacion = `No se encontraron coincidencias en ${consultadas} de ${resultados.length} listas consultadas.${noConsultadas > 0 ? ` ${noConsultadas} lista(s) no pudieron ser consultadas — verifique manualmente.` : ''} Se recomienda mantener el monitoreo periódico.`;
       }
-      const resp = await fetch('/api/generar-listas-restrictivas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, CONTRAPARTE: screeningContraparte, SCREENING: currentResults }) });
+      const resp = await apiFetch('/api/generar-listas-restrictivas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, CONTRAPARTE: screeningContraparte, SCREENING: currentResults }) });
       const result = await resp.json();
       if (result.success && result.base64) { dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'); await saveDocumento(empresaGuardada.id, 'listas_restrictivas', result.filename, result.base64); if (user) { await logActivity(empresaGuardada.id, user.email, 'generar_listas_restrictivas', `Contraparte: ${screeningContraparte.razon_social}`); } }
       else { setError('Error generando documento: ' + (result.error || 'intenta de nuevo')); }
@@ -429,7 +430,7 @@ export default function DashboardPage() {
         baja: { alto: 'moderado', moderado: 'bajo', bajo: 'bajo' },
       };
       const riesgoInherente = matrizRiesgo[ferForm.probabilidad]?.[ferForm.impacto] || 'moderado';
-      const resp = await fetch('/api/generar-fer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+      const resp = await apiFetch('/api/generar-fer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
         RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad,
         REPORTANTE: { nombre: ferForm.reportante_nombre, cargo: ferForm.reportante_cargo, area: ferForm.reportante_area, superior: ferForm.reportante_superior || empresaGuardada.representante_legal },
         EVENTO: { descripcion: ferForm.descripcion, naturaleza: ferForm.naturaleza, impacto: ferForm.impacto, probabilidad: ferForm.probabilidad },
@@ -457,7 +458,7 @@ export default function DashboardPage() {
       setTrabajadorForm(p => ({ ...p, contratoBase64: b, contratoNombre: file.name }));
       setLoadingExtraccion(true); setError('');
       try {
-        const resp = await fetch('/api/extraer-trabajador', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contratoBase64: b }) });
+        const resp = await apiFetch('/api/extraer-trabajador', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contratoBase64: b }) });
         const result = await resp.json();
         if (result.success && result.trabajador) { const t = result.trabajador; setTrabajadorForm(p => ({ ...p, nombre: t.nombre || p.nombre, cedula: t.cedula || p.cedula, cargo: t.cargo || p.cargo, area: t.area || p.area, fecha_ingreso: t.fecha_ingreso || p.fecha_ingreso })); }
         else { setError('No se pudieron extraer datos. Completa manualmente.'); }
@@ -483,7 +484,7 @@ export default function DashboardPage() {
     if (!empresaGuardada) return;
     setLoadingDeclaracion(trabajador.id);
     try {
-      const resp = await fetch('/api/generar-declaración', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, SIGLAS: empresaGuardada.razon_social?.split(' ').filter((p: string) => p.length > 1).map((p: string) => p[0]).join('').substring(0, 4).toUpperCase(), TRABAJADOR: { nombre: trabajador.razon_social, cedula: trabajador.nit_cc, cargo: trabajador.datos_extraidos?.cargo || '', area: trabajador.datos_extraidos?.area || '' } }) });
+      const resp = await apiFetch('/api/generar-declaración', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad, SIGLAS: empresaGuardada.razon_social?.split(' ').filter((p: string) => p.length > 1).map((p: string) => p[0]).join('').substring(0, 4).toUpperCase(), TRABAJADOR: { nombre: trabajador.razon_social, cedula: trabajador.nit_cc, cargo: trabajador.datos_extraidos?.cargo || '', area: trabajador.datos_extraidos?.area || '' } }) });
       const result = await resp.json();
       if (result.success && result.base64) {
         dl(result.base64, result.filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -1466,7 +1467,7 @@ export default function DashboardPage() {
                         setLoadingClasificacion(true);
                         try {
                           const prevEvents = reporteForm.contraparte_id ? eventosRiesgo.filter(e => e.contraparte_id === reporteForm.contraparte_id).length : 0;
-                          const resp = await fetch('/api/clasificar-evento', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ descripcion: reporteForm.descripcion, contraparte_eventos_previos: prevEvents }) });
+                          const resp = await apiFetch('/api/clasificar-evento', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ descripcion: reporteForm.descripcion, contraparte_eventos_previos: prevEvents }) });
                           const result = await resp.json();
                           if (result.success) {
                             setReporteAnalisis(result);
@@ -1605,7 +1606,7 @@ export default function DashboardPage() {
                             historial = { nombre: reporteForm.contraparte_nombre, eventos_previos: prevEv.length, ultima_consulta_listas: cpListas.length > 0 ? new Date(cpListas[0].created_at).toLocaleDateString('es-CO') : null, fer_count: cpFer.length };
                           }
                           // Generate document
-                          const resp = await fetch('/api/generar-reporte-evento', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+                          const resp = await apiFetch('/api/generar-reporte-evento', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
                             RAZON_SOCIAL: empresaGuardada.razon_social, NIT: empresaGuardada.nit, REPRESENTANTE_LEGAL: empresaGuardada.representante_legal, CIUDAD: empresaGuardada.ciudad,
                             EVENTO: { clasificacion: reporteForm.clasificacion, tipo_riesgo: reporteForm.tipo_riesgo, descripcion: reporteForm.descripcion, impacto_potencial: reporteForm.impacto_potencial, acciones_tomadas: reporteForm.acciones_tomadas, comentarios: reporteForm.comentarios },
                             REPORTANTE: { nombre: reporteForm.reportante_nombre, identificacion: reporteForm.reportante_identificacion },
@@ -2274,7 +2275,7 @@ export default function DashboardPage() {
                       if (ferForm.descripcion.length >= 20) {
                         setFerAnalyzing(true);
                         try {
-                          const resp = await fetch('/api/analizar-evento', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ descripcion: ferForm.descripcion }) });
+                          const resp = await apiFetch('/api/analizar-evento', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ descripcion: ferForm.descripcion }) });
                           const result = await resp.json();
                           if (result.success && result.sugerencia) {
                             setFerForm(p => ({ ...p, naturaleza: result.sugerencia.naturaleza, impacto: result.sugerencia.impacto, probabilidad: result.sugerencia.probabilidad }));
